@@ -1,2030 +1,588 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="it">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>VAF AI Game Generator — From Prompt to Playable</title>
   <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; frame-src *; connect-src *;">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
   <style>
-    /* ─── RESET & BASE ─────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:        #000000;
-      --bg2:       #0a0a0a;
-      --bg3:       #111113;
-      --border:    rgba(255,255,255,0.07);
-      --accent:    #7c3aed;
-      --accent2:   #c4a35a;
-      --accent3:   #d4af37;
-      --text:      #f4f4f5;
-      --muted:     #71717a;
-      --white:     #ffffff;
-      --gradient:  linear-gradient(135deg, #7c3aed 0%, #d4af37 100%);
+      --bg:      #000000;
+      --bg2:     #0a0a0a;
+      --bg3:     #111113;
+      --border:  rgba(255,255,255,0.07);
+      --accent:  #7c3aed;
+      --gold:    #d4af37;
+      --gold2:   #c4a35a;
+      --text:    #f4f4f5;
+      --muted:   #71717a;
+      --white:   #ffffff;
+      --grad:    linear-gradient(135deg, #7c3aed 0%, #d4af37 100%);
     }
 
     html { scroll-behavior: smooth; }
-
     body {
       background: var(--bg);
       color: var(--text);
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       font-size: 16px;
-      line-height: 1.7;
+      line-height: 1.6;
       overflow-x: hidden;
     }
-
     a { color: inherit; text-decoration: none; }
-
-    /* ─── SCROLLBAR ────────────────────────────────────── */
-    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: var(--bg); }
     ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
 
-    /* ─── NAV ──────────────────────────────────────────── */
+    /* ── NAV ── */
     nav {
       position: fixed; top: 0; left: 0; right: 0; z-index: 100;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 1rem 2.5rem;
-      background: rgba(9,9,11,0.85);
-      backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--border);
+      padding: 0.85rem 2rem;
+      background: rgba(0,0,0,0.92);
+      border-bottom: 1px solid rgba(212,175,55,0.15);
     }
-
+    nav::after {
+      content: '';
+      position: absolute; bottom: -2px; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, #d4af37, #7c3aed, #c4a35a, transparent);
+    }
     .nav-logo {
-      font-size: 1.15rem;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      background: var(--gradient);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      font-size: 1.05rem; font-weight: 800; letter-spacing: -0.02em;
+      background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
-
-    .nav-links {
-      display: flex; gap: 2rem;
-      list-style: none;
-    }
-
-    .nav-links a {
-      font-size: 0.875rem;
-      color: var(--muted);
-      transition: color 0.2s;
-    }
+    .nav-links { display: flex; gap: 1.5rem; list-style: none; align-items: center; }
+    .nav-links a { font-size: 0.85rem; color: var(--muted); transition: color 0.2s; }
     .nav-links a:hover { color: var(--white); }
-
     .nav-cta {
-      background: var(--gradient);
-      color: #fff !important;
-      padding: 0.5rem 1.25rem;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 0.875rem !important;
-      transition: opacity 0.2s;
+      background: var(--grad); color: #fff !important;
+      padding: 0.45rem 1.1rem; border-radius: 8px;
+      font-weight: 700; font-size: 0.85rem !important;
     }
-    .nav-cta:hover { opacity: 0.85; }
+    @media (max-width: 600px) { .nav-links { display: none; } }
 
-    /* ─── SECTION WRAPPER ──────────────────────────────── */
-    section {
-      padding: 6rem 2rem;
-      max-width: 1200px;
-      margin: 0 auto;
+    /* ── MATRIX BG ── */
+    #bg-matrix {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 0; pointer-events: none; opacity: 0.3;
     }
 
-    .section-label {
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--accent2);
-      margin-bottom: 1rem;
-    }
-
-    h1 { font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 900; line-height: 1.1; letter-spacing: -0.03em; }
-    h2 { font-size: clamp(1.75rem, 3vw, 2.75rem); font-weight: 800; line-height: 1.2; letter-spacing: -0.02em; }
-    h3 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; }
-
-    p { color: #a1a1aa; }
-
-    /* ─── HERO ─────────────────────────────────────────── */
+    /* ── HERO ── */
     #hero {
+      position: relative; z-index: 1;
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding-top: 8rem;
-      max-width: 100%;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .hero-glow {
-      position: absolute;
-      width: 700px; height: 700px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(124,58,237,0.25) 0%, transparent 70%);
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 7rem 1.5rem 3rem;
     }
 
     .hero-inner {
-      max-width: 860px;
-      position: relative;
-      z-index: 2;
+      width: 100%; max-width: 860px;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 1.5rem; text-align: center;
     }
 
     .hero-badge {
       display: inline-block;
       background: rgba(124,58,237,0.15);
       border: 1px solid rgba(124,58,237,0.4);
-      color: var(--accent2);
-      font-size: 0.8rem;
-      font-weight: 600;
-      letter-spacing: 0.05em;
-      padding: 0.35rem 1rem;
-      border-radius: 100px;
-      margin-bottom: 1.5rem;
+      color: var(--gold2);
+      font-size: 0.75rem; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 0.3rem 1rem; border-radius: 100px;
+      font-family: 'Courier New', monospace;
     }
+    .hero-badge::before { content: '> '; color: var(--gold); }
 
     #hero h1 {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 900; line-height: 1.1; letter-spacing: -0.03em;
       background: linear-gradient(180deg, #ffffff 0%, #a1a1aa 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 1.5rem;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
 
     .hero-sub {
-      font-size: 1.2rem;
-      color: #a1a1aa;
-      max-width: 620px;
-      margin: 0 auto 2.5rem;
+      font-size: 1.05rem; color: #a1a1aa; max-width: 560px;
     }
 
-    .hero-ctas {
-      display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;
-      margin-bottom: 2rem;
-    }
-
-    .btn-primary {
-      background: var(--gradient);
-      color: #fff;
-      padding: 0.85rem 2rem;
-      border-radius: 10px;
-      font-weight: 700;
-      font-size: 1rem;
-      cursor: pointer;
-      border: none;
-      transition: opacity 0.2s, transform 0.2s;
-      display: inline-flex; align-items: center; gap: 0.5rem;
-    }
-    .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
-
-    .btn-secondary {
-      background: transparent;
-      color: var(--text);
-      padding: 0.85rem 2rem;
-      border-radius: 10px;
-      font-weight: 600;
-      font-size: 1rem;
-      cursor: pointer;
-      border: 1px solid var(--border);
-      transition: border-color 0.2s, background 0.2s;
-      display: inline-flex; align-items: center; gap: 0.5rem;
-    }
-    .btn-secondary:hover { border-color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.04); }
-
-    .hero-support {
-      font-size: 0.85rem;
-      color: var(--muted);
-    }
-
-    /* ─── DIVIDER ───────────────────────────────────────── */
-    .divider {
-      height: 1px;
-      background: var(--border);
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    /* ─── WHAT IS ────────────────────────────────────────── */
-    #what {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 4rem;
-      align-items: center;
-    }
-
-    .what-left h2 { margin-bottom: 1.25rem; }
-    .what-left p  { margin-bottom: 1rem; font-size: 1.05rem; }
-
-    .what-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-    }
-    .what-table th {
-      text-align: left;
-      padding: 0.6rem 1rem;
-      background: rgba(124,58,237,0.1);
-      color: var(--accent2);
-      font-size: 0.75rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-    .what-table td {
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid var(--border);
-      color: #d4d4d8;
-    }
-    .what-table tr:last-child td { border-bottom: none; }
-    .what-table td:first-child { color: var(--white); font-weight: 600; }
-    .what-table tr:hover td { background: rgba(255,255,255,0.025); }
-
-    .table-wrap {
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow: hidden;
-      background: var(--bg3);
-    }
-
-    /* ─── USE CASES ──────────────────────────────────────── */
-    #usecases { background: var(--bg2); max-width: 100%; }
-    #usecases > .section-inner {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 6rem 2rem;
-    }
-
-    #usecases h2 { margin-bottom: 0.75rem; }
-    #usecases > .section-inner > p { margin-bottom: 3rem; font-size: 1.05rem; }
-
-    .usecase-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1.5rem;
-    }
-
-    .usecase-card {
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 2rem;
-      transition: border-color 0.2s, transform 0.2s;
-    }
-    .usecase-card:hover {
-      border-color: rgba(124,58,237,0.4);
-      transform: translateY(-3px);
-    }
-
-    .usecase-icon {
-      font-size: 2rem;
-      margin-bottom: 1rem;
-      display: block;
-    }
-
-    .usecase-tag {
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--accent2);
-      margin-bottom: 0.5rem;
-    }
-
-    .usecase-card h3 { color: var(--white); margin-bottom: 0.75rem; }
-    .usecase-card p  { font-size: 0.9rem; }
-
-    .usecase-pills {
-      display: flex; flex-wrap: wrap; gap: 0.5rem;
-      margin-top: 1rem;
-    }
-
-    .pill {
-      background: rgba(124,58,237,0.12);
-      border: 1px solid rgba(124,58,237,0.25);
-      color: var(--accent2);
-      font-size: 0.75rem;
-      font-weight: 600;
-      padding: 0.2rem 0.7rem;
-      border-radius: 100px;
-    }
-
-    /* ─── HOW IT WORKS ───────────────────────────────────── */
-    #how { text-align: center; }
-    #how h2 { margin-bottom: 0.75rem; }
-    #how > p { margin-bottom: 4rem; color: var(--muted); }
-
-    .steps {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-      max-width: 700px;
-      margin: 0 auto;
-      position: relative;
-    }
-
-    .steps::before {
-      content: '';
-      position: absolute;
-      left: 2.25rem;
-      top: 0; bottom: 0;
-      width: 1px;
-      background: var(--border);
-      z-index: 0;
-    }
-
-    .step {
-      display: flex;
-      gap: 1.5rem;
-      align-items: flex-start;
-      text-align: left;
-      padding: 1.5rem 0;
-      position: relative;
-      z-index: 1;
-    }
-
-    .step-num {
-      min-width: 4.5rem;
-      height: 4.5rem;
-      border-radius: 50%;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 0.8rem;
-      font-weight: 800;
-      color: var(--accent2);
-      letter-spacing: 0.05em;
-      flex-shrink: 0;
-    }
-
-    .step-content h3 { color: var(--white); margin-bottom: 0.35rem; }
-    .step-content p  { font-size: 0.9rem; }
-
-    /* ─── FEATURES ───────────────────────────────────────── */
-    #features { background: var(--bg2); max-width: 100%; }
-    #features > .section-inner {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 6rem 2rem;
-    }
-
-    #features h2 { margin-bottom: 0.75rem; }
-    #features > .section-inner > p { margin-bottom: 3rem; }
-
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1.25rem;
-    }
-
-    .feature-card {
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 1.75rem;
-      transition: border-color 0.2s;
-    }
-    .feature-card:hover { border-color: rgba(124,58,237,0.35); }
-
-    .feature-icon {
-      width: 44px; height: 44px;
-      background: rgba(124,58,237,0.12);
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.3rem;
-      margin-bottom: 1rem;
-    }
-
-    .feature-card h3 { font-size: 1rem; color: var(--white); margin-bottom: 0.4rem; }
-    .feature-card p  { font-size: 0.85rem; }
-
-    /* ─── CREDIT MODEL ───────────────────────────────────── */
-    #credits h2 { margin-bottom: 0.75rem; }
-    #credits > p { margin-bottom: 3rem; }
-
-    .credits-layout {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 3rem;
-      align-items: start;
-    }
-
-    .credit-table-wrap {
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow: hidden;
-      background: var(--bg3);
-    }
-
-    .credit-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-    }
-    .credit-table th {
-      text-align: left;
-      padding: 0.65rem 1rem;
-      background: rgba(124,58,237,0.1);
-      color: var(--accent2);
-      font-size: 0.75rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-    .credit-table td {
-      padding: 0.8rem 1rem;
-      border-bottom: 1px solid var(--border);
-      color: #d4d4d8;
-    }
-    .credit-table tr:last-child td { border-bottom: none; }
-    .credit-table td:first-child { color: var(--white); font-weight: 600; }
-
-    .plans {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .plan-card {
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.5rem;
-      transition: border-color 0.2s;
-    }
-    .plan-card.featured {
-      border-color: rgba(124,58,237,0.5);
-      background: rgba(124,58,237,0.07);
-    }
-
-    .plan-name {
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--accent2);
-      margin-bottom: 0.3rem;
-    }
-
-    .plan-card h3 { font-size: 1rem; color: var(--white); margin-bottom: 0.3rem; }
-    .plan-card p  { font-size: 0.85rem; }
-
-    /* ─── ENTERPRISE ─────────────────────────────────────── */
-    #enterprise { background: var(--bg2); max-width: 100%; }
-    #enterprise > .section-inner {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 6rem 2rem;
-    }
-
-    .enterprise-layout {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 4rem;
-      align-items: center;
-    }
-
-    .enterprise-left h2 { margin-bottom: 1rem; }
-    .enterprise-left p  { margin-bottom: 2rem; }
-
-    .enterprise-targets {
-      display: flex; flex-wrap: wrap; gap: 0.5rem;
-      margin-bottom: 2rem;
-    }
-
-    .enterprise-pill {
-      background: rgba(212,175,55,0.08);
-      border: 1px solid rgba(212,175,55,0.3);
-      color: var(--accent3);
-      font-size: 0.8rem;
-      font-weight: 600;
-      padding: 0.3rem 0.9rem;
-      border-radius: 100px;
-    }
-
-    .enterprise-features {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .ent-feature {
-      display: flex;
-      gap: 1rem;
-      align-items: flex-start;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.25rem;
-    }
-
-    .ent-feature-icon {
-      font-size: 1.5rem;
-      flex-shrink: 0;
-    }
-
-    .ent-feature h3 { font-size: 0.95rem; color: var(--white); margin-bottom: 0.2rem; }
-    .ent-feature p  { font-size: 0.85rem; }
-
-    /* ─── SHOWCASE ───────────────────────────────────────── */
-    #showcase { text-align: center; }
-    #showcase h2 { margin-bottom: 0.75rem; }
-    #showcase > p { margin-bottom: 3rem; color: var(--muted); }
-
-    .showcase-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1.25rem;
-      text-align: left;
-    }
-
-    .showcase-card {
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      overflow: hidden;
-      transition: border-color 0.2s, transform 0.2s;
-    }
-    .showcase-card:hover {
-      border-color: rgba(124,58,237,0.4);
-      transform: translateY(-4px);
-    }
-
-    .showcase-thumb {
-      height: 140px;
-      background: var(--gradient);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 3rem;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .showcase-thumb::after {
-      content: '';
-      position: absolute; inset: 0;
-      background: linear-gradient(to bottom, transparent 40%, rgba(24,24,27,0.6));
-    }
-
-    .showcase-body { padding: 1.25rem; }
-
-    .showcase-type {
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--accent2);
-      margin-bottom: 0.4rem;
-    }
-
-    .showcase-card h3 { font-size: 0.95rem; color: var(--white); margin-bottom: 0.4rem; }
-    .showcase-card p  { font-size: 0.82rem; }
-
-    /* ─── VISION ─────────────────────────────────────────── */
-    #vision { background: var(--bg2); max-width: 100%; }
-    #vision > .section-inner {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 6rem 2rem;
-      text-align: center;
-    }
-
-    #vision h2 { margin-bottom: 1.5rem; }
-
-    .vision-quote {
-      font-size: 1.25rem;
-      color: var(--text);
-      max-width: 700px;
-      margin: 0 auto 3rem;
-      line-height: 1.8;
-      font-style: italic;
-    }
-
-    .vision-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1.25rem;
-      text-align: left;
-      margin-bottom: 3rem;
-    }
-
-    .vision-card {
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 1.75rem;
-    }
-
-    .vision-card h3 { font-size: 0.95rem; color: var(--white); margin-bottom: 0.4rem; }
-    .vision-card p  { font-size: 0.85rem; }
-
-    .vision-ctas {
-      display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;
-    }
-
-    /* ─── FOOTER ─────────────────────────────────────────── */
-    footer {
-      background: var(--bg);
-      border-top: 1px solid var(--border);
-      padding: 4rem 2rem 2rem;
-      max-width: 100%;
-    }
-
-    .footer-inner {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .footer-top {
-      display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1fr;
-      gap: 3rem;
-      padding-bottom: 3rem;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 2rem;
-    }
-
-    .footer-brand p {
-      font-size: 0.85rem;
-      color: var(--muted);
-      margin-top: 0.75rem;
-      max-width: 280px;
-    }
-
-    .footer-logo {
-      font-size: 1.1rem;
-      font-weight: 800;
-      background: var(--gradient);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .footer-col h4 {
-      font-size: 0.8rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 1rem;
-    }
-
-    .footer-col ul {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
-    }
-
-    .footer-col ul li a {
-      font-size: 0.875rem;
-      color: #71717a;
-      transition: color 0.2s;
-    }
-    .footer-col ul li a:hover { color: var(--white); }
-
-    .footer-bottom {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 1rem;
-    }
-
-    .footer-bottom p {
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
-
-    .footer-socials {
-      display: flex; gap: 1rem;
-    }
-
-    .footer-socials a {
-      width: 36px; height: 36px;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 0.9rem;
-      color: var(--muted);
-      transition: color 0.2s, border-color 0.2s;
-    }
-    .footer-socials a:hover { color: var(--white); border-color: rgba(255,255,255,0.2); }
-
-    /* ─── UTILITIES ──────────────────────────────────────── */
-    .gradient-text {
-      background: var(--gradient);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .highlight { color: var(--white); }
-
-    /* ─── RESPONSIVE ─────────────────────────────────────── */
-    @media (max-width: 900px) {
-      #what, .credits-layout, .enterprise-layout { grid-template-columns: 1fr; }
-      .usecase-grid, .features-grid, .showcase-grid, .vision-grid { grid-template-columns: 1fr 1fr; }
-      .footer-top { grid-template-columns: 1fr 1fr; }
-    }
-
-    @media (max-width: 600px) {
-      nav { padding: 1rem; }
-      .nav-links { display: none; }
-      .usecase-grid, .features-grid, .showcase-grid, .vision-grid { grid-template-columns: 1fr; }
-      .footer-top { grid-template-columns: 1fr; }
-    }
-
-    /* ─── PORTAL ORB GLOBALI ─────────────────────────────────── */
-    .orb {
-      position: absolute;
-      border-radius: 50%;
-      filter: blur(80px);
-      animation: orbFloat 12s ease-in-out infinite;
-    }
-    .orb1 {
-      width: 700px; height: 700px;
-      background: radial-gradient(circle, rgba(139,92,246,0.45), transparent 70%);
-      top: -250px; left: -150px;
-      animation-delay: 0s;
-    }
-    .orb2 {
-      width: 550px; height: 550px;
-      background: radial-gradient(circle, rgba(212,175,55,0.35), transparent 70%);
-      top: 25%; right: -150px;
-      animation-delay: -4s;
-    }
-    .orb3 {
-      width: 450px; height: 450px;
-      background: radial-gradient(circle, rgba(139,92,246,0.3), transparent 70%);
-      bottom: 5%; left: 10%;
-      animation-delay: -8s;
-    }
-    @keyframes orbFloat {
-      0%,100% { transform: translateY(0) scale(1); }
-      33%      { transform: translateY(-40px) scale(1.05); }
-      66%      { transform: translateY(20px) scale(0.97); }
-    }
-
-    /* Tutti gli elementi sopra il canvas */
-    nav, section, #hero, footer, .divider,
-    #usecases, #features, #enterprise, #vision { position: relative; z-index: 1; }
-
-    /* Hero scanline effect */
-    #hero::after {
-      content: '';
-      position: absolute; inset: 0; z-index: 0; pointer-events: none;
-      background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0,0,0,0.03) 2px,
-        rgba(0,0,0,0.03) 4px
-      );
-    }
-
-    /* Glitch text effect sul titolo hero */
-    #hero h1 {
-      position: relative;
-    }
-    #hero h1::before {
-      content: attr(data-text);
-      position: absolute; top: 0; left: 0;
-      background: linear-gradient(180deg, #ffffff 0%, #a1a1aa 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      animation: glitch1 6s infinite;
-      clip-path: polygon(0 20%, 100% 20%, 100% 40%, 0 40%);
-      opacity: 0.4;
-    }
-    @keyframes glitch1 {
-      0%,90%,100% { transform: translateX(0); opacity: 0; }
-      92% { transform: translateX(-3px); opacity: 0.4; }
-      94% { transform: translateX(3px); opacity: 0.4; }
-      96% { transform: translateX(0); opacity: 0; }
-    }
-
-    /* Card con bordo oro elegante al hover */
-    .usecase-card:hover, .feature-card:hover, .showcase-card:hover {
-      border-color: rgba(212,175,55,0.45) !important;
-      box-shadow: 0 0 20px rgba(212,175,55,0.08), 0 0 40px rgba(124,58,237,0.08);
-    }
-
-    /* Sezioni con sfondo semi-trasparente */
-    #usecases { background: rgba(0,0,0,0.5) !important; backdrop-filter: blur(2px); }
-    #features  { background: rgba(0,0,0,0.4) !important; backdrop-filter: blur(2px); }
-    #enterprise{ background: rgba(0,0,0,0.5) !important; backdrop-filter: blur(2px); }
-    #vision    { background: rgba(0,0,0,0.4) !important; backdrop-filter: blur(2px); }
-
-    /* Terminale-style per il badge hero */
-    .hero-badge {
-      font-family: 'Courier New', monospace !important;
-      letter-spacing: 0.1em;
-    }
-    .hero-badge::before { content: '> '; color: #d4af37; }
-
-    /* Cursor blink nell'hero */
-    .hero-cursor {
-      display: inline-block;
-      width: 3px; height: 1.1em;
-      background: #7c3aed;
-      margin-left: 4px;
-      vertical-align: text-bottom;
-      animation: blink 1s step-end infinite;
-    }
-    @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0; } }
-
-    /* Nav con stile elegante */
-    nav {
-      border-bottom: 1px solid rgba(212,175,55,0.15) !important;
-      background: rgba(0,0,0,0.92) !important;
-    }
-
-    /* Linea elegante sotto il nav — oro e viola */
-    nav::after {
-      content: '';
-      position: absolute; bottom: -2px; left: 0; right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, #d4af37, #7c3aed, #c4a35a, transparent);
-      animation: scanLine 3s linear infinite;
-    }
-    @keyframes scanLine {
-      0%   { background-position: -100% 0; }
-      100% { background-position: 200% 0; }
-    }
-
-    /* Step numbers stile elegante */
-    .step-num {
-      font-family: 'Courier New', monospace !important;
-      color: #d4af37 !important;
-      border-color: rgba(212,175,55,0.3) !important;
-      background: rgba(212,175,55,0.04) !important;
-    }
-
-    /* Tabelle con oro elegante */
-    .what-table th, .credit-table th {
-      color: #c4a35a !important;
-      background: rgba(212,175,55,0.05) !important;
-    }
-
-    /* Sezione label stile elegante */
-    .section-label {
-      font-family: 'Courier New', monospace !important;
-      color: #c4a35a !important;
-    }
-    .section-label::before { content: '// '; opacity: 0.5; }
-
-    /* ─── STUDIO MODAL — Matrix / Portal style ──────────────── */
-    .modal-overlay {
-      display: none;
-      position: fixed; inset: 0; z-index: 1000;
-      background: rgba(0,0,0,0.92);
-      backdrop-filter: blur(4px);
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-    }
-    .modal-overlay.open { display: flex; }
-
-    /* Matrix rain canvas — posizionato dietro il modal */
-    #matrix-canvas {
-      position: fixed; inset: 0; z-index: 1001;
-      pointer-events: none;
-      opacity: 0.18;
-    }
-
-    .modal {
-      background: rgba(9,9,11,0.96);
+    /* ── INLINE STUDIO BOX ── */
+    .studio-box {
+      width: 100%; max-width: 640px;
+      background: rgba(9,9,11,0.95);
       border: 1px solid rgba(124,58,237,0.5);
       border-radius: 20px;
-      width: 100%;
-      max-width: 620px;
-      max-height: 90vh;
-      overflow-y: auto;
-      padding: 2.5rem;
+      padding: 1.75rem;
       position: relative;
-      z-index: 1002;
-      animation: portalOpen 0.4s cubic-bezier(0.34,1.56,0.64,1);
-      box-shadow:
-        0 0 40px rgba(124,58,237,0.25),
-        0 0 80px rgba(212,175,55,0.12),
-        inset 0 0 40px rgba(124,58,237,0.05);
+      box-shadow: 0 0 40px rgba(124,58,237,0.2), 0 0 80px rgba(212,175,55,0.08);
     }
-
-    /* Bordo animato stile elegante — viola e oro */
-    .modal::before {
+    .studio-box::before {
       content: '';
-      position: absolute; inset: -1px;
-      border-radius: 21px;
-      background: linear-gradient(135deg, rgba(124,58,237,0.8), rgba(212,175,55,0.8), rgba(196,163,90,0.6), rgba(124,58,237,0.8));
+      position: absolute; inset: -1px; border-radius: 21px;
+      background: linear-gradient(135deg, rgba(124,58,237,0.7), rgba(212,175,55,0.7), rgba(124,58,237,0.7));
       background-size: 300% 300%;
       animation: borderGlow 3s linear infinite;
-      z-index: -1;
-      opacity: 0.65;
+      z-index: -1; opacity: 0.5;
     }
-
     @keyframes borderGlow {
       0%   { background-position: 0% 50%; }
       50%  { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
 
-    @keyframes portalOpen {
-      from { opacity: 0; transform: scale(0.8) translateY(30px); filter: blur(8px); }
-      to   { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+    .studio-title {
+      font-size: 0.72rem; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--gold2); margin-bottom: 1rem;
+      font-family: 'Courier New', monospace;
     }
+    .studio-title::before { content: '// '; opacity: 0.5; }
 
-    .modal-close {
-      position: absolute; top: 1.25rem; right: 1.25rem;
-      background: none; border: none; color: var(--muted);
-      font-size: 1.4rem; cursor: pointer; line-height: 1;
-      transition: color 0.2s;
-    }
-    .modal-close:hover { color: var(--white); }
-
-    .modal h2 { font-size: 1.5rem; margin-bottom: 0.4rem; }
-    .modal > p { font-size: 0.9rem; color: var(--muted); margin-bottom: 1.75rem; }
-
-    .form-group { margin-bottom: 1.25rem; }
-    .form-group label {
-      display: block;
-      font-size: 0.8rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 0.5rem;
-    }
-
-    .form-group textarea,
-    .form-group input,
-    .form-group select {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      color: var(--text);
-      font-size: 0.95rem;
-      padding: 0.75rem 1rem;
-      font-family: inherit;
-      resize: vertical;
-      transition: border-color 0.2s;
-      outline: none;
-    }
-    .form-group textarea:focus,
-    .form-group input:focus,
-    .form-group select:focus { border-color: var(--accent2); }
-
-    .form-group textarea { min-height: 90px; }
-
-    /* ─── EXAMPLE PROMPT CARDS ───────────────────────────────── */
-    .example-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 0.6rem;
+    /* Example chips */
+    .example-chips {
+      display: flex; flex-wrap: wrap; gap: 0.45rem;
       margin-bottom: 1rem;
     }
-
-    .example-card {
-      background: var(--bg);
+    .chip {
+      background: rgba(255,255,255,0.04);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 0.75rem 0.9rem;
-      cursor: pointer;
-      transition: all 0.18s;
-      text-align: left;
+      border-radius: 100px;
+      padding: 0.3rem 0.75rem;
+      font-size: 0.78rem; color: var(--muted);
+      cursor: pointer; transition: all 0.15s;
+      white-space: nowrap;
     }
-    .example-card:hover {
-      border-color: rgba(196,163,90,0.45);
-      background: rgba(212,175,55,0.04);
-    }
-    .example-card .ex-icon { font-size: 1.1rem; margin-bottom: 0.3rem; display: block; }
-    .example-card .ex-title {
-      font-size: 0.78rem;
-      font-weight: 700;
-      color: var(--white);
-      margin-bottom: 0.2rem;
-    }
-    .example-card .ex-desc {
-      font-size: 0.72rem;
-      color: var(--muted);
-      line-height: 1.4;
+    .chip:hover {
+      border-color: rgba(196,163,90,0.5);
+      color: var(--gold2);
+      background: rgba(212,175,55,0.05);
     }
 
-    .credit-info {
-      background: rgba(124,58,237,0.08);
-      border: 1px solid rgba(124,58,237,0.25);
-      border-radius: 10px;
-      padding: 0.75rem 1rem;
-      font-size: 0.85rem;
-      color: var(--accent2);
-      margin-bottom: 1.5rem;
-      display: flex; justify-content: space-between; align-items: center;
+    .concept-textarea {
+      width: 100%;
+      background: rgba(0,0,0,0.6);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 0.95rem;
+      padding: 0.85rem 1rem;
+      font-family: inherit;
+      resize: none;
+      transition: border-color 0.2s;
+      outline: none;
+      min-height: 80px;
+      margin-bottom: 0.85rem;
     }
+    .concept-textarea:focus { border-color: var(--gold2); }
+    .concept-textarea::placeholder { color: var(--muted); }
+
+    .studio-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap;
+    }
+
+    .credit-badge {
+      font-size: 0.8rem; color: var(--muted);
+      display: flex; align-items: center; gap: 0.35rem;
+    }
+    .credit-badge strong { color: var(--gold2); font-size: 1rem; }
 
     .generate-btn {
-      width: 100%;
-      background: var(--gradient);
-      color: #fff;
-      border: none;
-      border-radius: 12px;
-      font-size: 1rem;
-      font-weight: 700;
-      padding: 1rem;
-      cursor: pointer;
-      transition: opacity 0.2s;
+      background: var(--grad);
+      color: #fff; border: none;
+      border-radius: 10px;
+      font-size: 0.95rem; font-weight: 700;
+      padding: 0.75rem 2rem;
+      cursor: pointer; transition: opacity 0.2s;
+      white-space: nowrap;
     }
     .generate-btn:hover { opacity: 0.88; }
     .generate-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    /* ─── GENERATION STATES ──────────────────────────────────── */
-    .gen-loading {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      gap: 1.25rem;
-      padding: 2rem 0;
-      text-align: center;
-    }
-    .gen-loading.visible { display: flex; }
-
-    .spinner {
-      width: 48px; height: 48px;
-      border: 3px solid rgba(124,58,237,0.2);
-      border-top-color: var(--accent2);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .gen-loading p { color: var(--muted); font-size: 0.9rem; }
-    .gen-loading strong { color: var(--white); font-size: 1.1rem; display: block; }
-
-    /* ─── RESULT PANEL ───────────────────────────────────────── */
-    .result-panel {
-      display: none;
-    }
-    .result-panel.visible { display: block; }
-
-    .result-meta {
-      display: flex; gap: 1rem; flex-wrap: wrap;
-      margin-bottom: 1.25rem;
-    }
-
-    .meta-badge {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.3rem 0.75rem;
-      font-size: 0.78rem;
-      color: var(--muted);
-    }
-    .meta-badge span { color: var(--white); font-weight: 700; }
-
-    .game-preview {
-      width: 100%;
-      height: 420px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: #000;
-      margin-bottom: 1.25rem;
-    }
-
-    .result-actions {
-      display: flex; gap: 0.75rem; flex-wrap: wrap;
-    }
-
-    .result-actions button {
-      flex: 1;
-      padding: 0.7rem 1rem;
-      border-radius: 10px;
-      font-weight: 600;
-      font-size: 0.9rem;
-      cursor: pointer;
-      transition: all 0.2s;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      color: var(--text);
-    }
-    .result-actions button:hover { border-color: var(--accent2); color: var(--white); }
-    .result-actions button.primary-action {
-      background: var(--gradient);
-      border: none;
-      color: #fff;
-    }
-
-    /* ─── PUBLISH PANEL ──────────────────────────────────────── */
-    .publish-panel {
-      display: none;
-      margin-top: 1.25rem;
-      border-top: 1px solid var(--border);
-      padding-top: 1.25rem;
-    }
-    .publish-panel.visible { display: block; }
-
-    .publish-panel h3 {
-      font-size: 1rem;
-      color: var(--white);
-      margin-bottom: 0.75rem;
-    }
-
-    .publish-success {
-      display: none;
-      background: rgba(212,175,55,0.08);
-      border: 1px solid rgba(212,175,55,0.35);
-      border-radius: 10px;
-      padding: 1rem 1.25rem;
-      text-align: center;
-    }
-    .publish-success.visible { display: block; }
-    .publish-success p { color: var(--accent3); font-size: 0.9rem; margin-bottom: 0.5rem; }
-    .publish-success .pub-link {
-      font-size: 0.82rem;
-      color: var(--muted);
-      word-break: break-all;
-      font-family: monospace;
-    }
-
-    /* ─── COMPLEXITY WARNING ──────────────────────────────────── */
+    /* Complexity warn */
     .complexity-warn {
       display: none;
       background: rgba(212,175,55,0.07);
       border: 1px solid rgba(212,175,55,0.3);
-      border-radius: 10px;
-      padding: 1rem;
-      margin-bottom: 1rem;
-      font-size: 0.88rem;
+      border-radius: 10px; padding: 0.75rem 1rem;
+      margin-bottom: 0.85rem; font-size: 0.85rem;
     }
     .complexity-warn.visible { display: block; }
-    .complexity-warn strong { color: var(--accent3); display: block; margin-bottom: 0.35rem; }
+    .complexity-warn strong { color: var(--gold); display: block; margin-bottom: 0.25rem; }
     .complexity-warn p { color: #c4c4c8; }
 
-    /* ─── REFINE PANEL ───────────────────────────────────────── */
-    .refine-panel {
-      display: none;
-      margin-top: 1.25rem;
-      border-top: 1px solid var(--border);
-      padding-top: 1.25rem;
-    }
-    .refine-panel.visible { display: block; }
-
-    .refine-panel .form-group { margin-bottom: 0.75rem; }
-
-    /* ─── ERROR STATE ────────────────────────────────────────── */
+    /* Error box */
     .error-box {
       display: none;
       background: rgba(239,68,68,0.08);
       border: 1px solid rgba(239,68,68,0.3);
-      border-radius: 10px;
-      padding: 1rem;
-      color: #fca5a5;
-      font-size: 0.9rem;
-      margin-bottom: 1rem;
+      border-radius: 10px; padding: 0.75rem 1rem;
+      color: #fca5a5; font-size: 0.88rem;
+      margin-bottom: 0.85rem;
     }
     .error-box.visible { display: block; }
 
-    /* ─── GALLERY PUBBLICA ───────────────────────────────────── */
-    #gallery { text-align: center; }
-    #gallery h2 { margin-bottom: 0.75rem; }
-    #gallery > p { margin-bottom: 3rem; color: var(--muted); }
+    /* Loading state (inside studio-box) */
+    .gen-loading {
+      display: none; flex-direction: column;
+      align-items: center; gap: 1rem;
+      padding: 1.5rem 0; text-align: center;
+    }
+    .gen-loading.visible { display: flex; }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 3px solid rgba(124,58,237,0.2);
+      border-top-color: var(--gold2);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .gen-loading strong { color: var(--white); display: block; }
+    .gen-loading p { color: var(--muted); font-size: 0.88rem; }
+
+    /* Result state */
+    .result-panel { display: none; }
+    .result-panel.visible { display: block; }
+
+    .result-meta {
+      display: flex; gap: 0.6rem; flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .meta-badge {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 0.25rem 0.65rem;
+      font-size: 0.75rem; color: var(--muted);
+    }
+    .meta-badge span { color: var(--white); font-weight: 700; }
+
+    .game-preview-box {
+      width: 100%; height: 260px;
+      border: 1px solid var(--border); border-radius: 12px;
+      background: linear-gradient(135deg, rgba(124,58,237,0.08), rgba(212,175,55,0.05));
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 0.75rem; margin-bottom: 1rem;
+    }
+    .game-preview-box .play-icon { font-size: 3rem; }
+
+    .result-actions {
+      display: flex; gap: 0.6rem; flex-wrap: wrap;
+      margin-bottom: 0;
+    }
+    .result-actions button {
+      flex: 1; padding: 0.6rem 0.75rem;
+      border-radius: 9px; font-weight: 600; font-size: 0.85rem;
+      cursor: pointer; transition: all 0.2s;
+      border: 1px solid var(--border);
+      background: var(--bg3); color: var(--text);
+      min-width: 80px;
+    }
+    .result-actions button:hover { border-color: var(--gold2); color: var(--white); }
+    .result-actions button.act-primary {
+      background: var(--grad); border: none; color: #fff;
+    }
+    .result-actions button.act-publish {
+      background: rgba(212,175,55,0.1);
+      border-color: rgba(212,175,55,0.35); color: var(--gold);
+    }
+
+    /* Publish panel */
+    .publish-panel {
+      display: none; margin-top: 1rem;
+      border-top: 1px solid var(--border); padding-top: 1rem;
+    }
+    .publish-panel.visible { display: block; }
+    .pub-input {
+      width: 100%; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 9px;
+      color: var(--text); font-size: 0.9rem;
+      padding: 0.65rem 0.9rem; font-family: inherit;
+      outline: none; margin-bottom: 0.6rem;
+      transition: border-color 0.2s;
+    }
+    .pub-input:focus { border-color: var(--gold2); }
+    .pub-success {
+      display: none;
+      background: rgba(212,175,55,0.07);
+      border: 1px solid rgba(212,175,55,0.35);
+      border-radius: 10px; padding: 0.85rem 1rem;
+      text-align: center; margin-top: 0.5rem;
+    }
+    .pub-success.visible { display: block; }
+    .pub-success p { color: var(--gold); font-size: 0.88rem; margin-bottom: 0.35rem; }
+    .pub-link { font-size: 0.78rem; color: var(--muted); word-break: break-all; font-family: monospace; }
+
+    /* Refine panel */
+    .refine-panel {
+      display: none; margin-top: 1rem;
+      border-top: 1px solid var(--border); padding-top: 1rem;
+    }
+    .refine-panel.visible { display: block; }
+
+    /* ── GALLERY ── */
+    #gallery {
+      position: relative; z-index: 1;
+      padding: 4rem 2rem;
+      max-width: 1200px; margin: 0 auto;
+    }
+
+    .gallery-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;
+    }
+    .gallery-header h2 {
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      font-weight: 800; letter-spacing: -0.02em;
+    }
+    .gallery-header h2 span {
+      background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .btn-refresh {
+      background: transparent; border: 1px solid var(--border);
+      border-radius: 8px; color: var(--muted);
+      padding: 0.45rem 1rem; font-size: 0.82rem; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-refresh:hover { border-color: var(--gold2); color: var(--white); }
 
     .gallery-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1.25rem;
-      text-align: left;
-      margin-bottom: 2rem;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1.1rem;
     }
-
-    @media (max-width: 900px) { .gallery-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 600px) { .gallery-grid { grid-template-columns: 1fr; } }
 
     .gallery-card {
       background: var(--bg3);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      overflow: hidden;
+      border-radius: 14px; overflow: hidden;
       transition: border-color 0.2s, transform 0.2s;
     }
     .gallery-card:hover {
-      border-color: rgba(212,175,55,0.45);
-      transform: translateY(-4px);
-      box-shadow: 0 0 20px rgba(212,175,55,0.08), 0 0 40px rgba(124,58,237,0.08);
+      border-color: rgba(212,175,55,0.4);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 32px rgba(124,58,237,0.12);
     }
 
     .gallery-thumb {
-      height: 110px;
-      background: var(--gradient);
+      height: 120px;
+      background: var(--grad);
       display: flex; align-items: center; justify-content: center;
-      font-size: 2.8rem;
-      position: relative;
-      overflow: hidden;
-      cursor: pointer;
+      font-size: 3rem; cursor: pointer; position: relative; overflow: hidden;
     }
     .gallery-thumb::after {
       content: '▶ Gioca';
       position: absolute; inset: 0;
-      background: rgba(0,0,0,0.55);
+      background: rgba(0,0,0,0.6);
       display: flex; align-items: center; justify-content: center;
       font-size: 0.9rem; font-weight: 700; color: #fff;
       opacity: 0; transition: opacity 0.2s;
+      font-family: inherit;
     }
     .gallery-thumb:hover::after { opacity: 1; }
 
-    .gallery-body { padding: 1rem 1.25rem; }
-    .gallery-card h3 { font-size: 0.95rem; color: var(--white); margin-bottom: 0.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .gallery-card p  { font-size: 0.8rem; margin-bottom: 0.75rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-
-    .gallery-actions { display: flex; gap: 0.5rem; }
-    .gallery-actions a, .gallery-actions button {
-      flex: 1;
-      padding: 0.45rem 0.5rem;
-      border-radius: 8px;
-      font-weight: 600; font-size: 0.78rem;
-      cursor: pointer; text-align: center;
-      transition: all 0.2s;
+    .gallery-body { padding: 0.9rem 1rem; }
+    .gallery-card h3 {
+      font-size: 0.9rem; color: var(--white); margin-bottom: 0.3rem;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .btn-play-gallery {
-      background: var(--gradient);
-      color: #fff; border: none; text-decoration: none;
+    .gallery-card p {
+      font-size: 0.78rem; color: var(--muted); margin-bottom: 0.7rem;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+
+    .gallery-actions { display: flex; gap: 0.4rem; }
+    .gallery-actions a, .gallery-actions button {
+      flex: 1; padding: 0.4rem 0.5rem;
+      border-radius: 7px; font-weight: 600; font-size: 0.75rem;
+      cursor: pointer; text-align: center; transition: all 0.2s;
       display: inline-flex; align-items: center; justify-content: center;
     }
-    .btn-remix-gallery {
-      background: rgba(212,175,55,0.1);
-      border: 1px solid rgba(212,175,55,0.3);
-      color: #d4af37;
+    .btn-play {
+      background: var(--grad); color: #fff; border: none; text-decoration: none;
     }
-    .btn-remix-gallery:hover { background: rgba(212,175,55,0.2); }
+    .btn-remix {
+      background: rgba(212,175,55,0.08);
+      border: 1px solid rgba(212,175,55,0.28); color: var(--gold);
+    }
+    .btn-remix:hover { background: rgba(212,175,55,0.18); }
 
     .gallery-empty {
       text-align: center; padding: 4rem 2rem;
-      color: var(--muted); font-size: 0.95rem;
-    }
-    .gallery-empty .empty-icon { font-size: 3rem; display: block; margin-bottom: 1rem; }
-
-    .gallery-loading {
-      text-align: center; padding: 3rem;
-      color: var(--muted); font-size: 0.9rem;
-    }
-
-    /* ─── CREDIT BAR ─────────────────────────────────────────── */
-    #credit-bar {
-      position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 200;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 100px;
-      padding: 0.5rem 1.25rem;
-      font-size: 0.82rem;
       color: var(--muted);
-      display: flex; align-items: center; gap: 0.5rem;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
     }
-    #credit-bar .credit-count { color: var(--accent2); font-weight: 800; font-size: 1rem; }
+    .gallery-empty .ei { font-size: 3rem; display: block; margin-bottom: 1rem; }
+    .gallery-loading { text-align: center; padding: 3rem; color: var(--muted); font-size: 0.9rem; }
+
+    /* ── CREDIT FLOAT ── */
+    #credit-bar {
+      position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 200;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 100px; padding: 0.45rem 1.1rem;
+      font-size: 0.8rem; color: var(--muted);
+      display: flex; align-items: center; gap: 0.4rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    #credit-bar .cc { color: var(--gold2); font-weight: 800; font-size: 0.95rem; }
+
+    /* ── FOOTER ── */
+    footer {
+      position: relative; z-index: 1;
+      border-top: 1px solid var(--border);
+      padding: 2rem; text-align: center;
+      font-size: 0.82rem; color: var(--muted);
+    }
+    footer a { color: var(--muted); transition: color 0.2s; }
+    footer a:hover { color: var(--white); }
+
+    /* ── MATRIX MODAL OVERLAY ── */
+    #matrix-canvas {
+      position: fixed; inset: 0; z-index: 500;
+      pointer-events: none; opacity: 0.15; display: none;
+    }
   </style>
 </head>
 <body>
 
-<!-- ─── BACKGROUND MATRIX CANVAS ────────────────────────────── -->
-<canvas id="bg-matrix" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:0.35;"></canvas>
+<!-- BG MATRIX -->
+<canvas id="bg-matrix"></canvas>
 
-<!-- ─── PORTAL GLOW ORBS ──────────────────────────────────────── -->
-<div style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;overflow:hidden;">
-  <div class="orb orb1"></div>
-  <div class="orb orb2"></div>
-  <div class="orb orb3"></div>
-</div>
-
-<!-- ─── NAV ──────────────────────────────────────────────── -->
+<!-- NAV -->
 <nav>
   <div class="nav-logo">VAF AI Game Generator</div>
   <ul class="nav-links">
-    <li><a href="#what">Platform</a></li>
-    <li><a href="#how">How It Works</a></li>
+    <li><a href="#hero">Studio</a></li>
     <li><a href="#gallery">🌍 Gallery</a></li>
-    <li><a href="#credits">Prezzi</a></li>
-    <li><a href="#enterprise" class="nav-cta">Enterprise</a></li>
-    <li><a href="#" class="nav-cta" id="open-studio" style="background:var(--gradient);margin-left:0.5rem;">▶ Apri Studio</a></li>
+    <li><a href="#" id="nav-cta" class="nav-cta">⚡ Crea Gioco</a></li>
   </ul>
 </nav>
 
-<!-- ─── HERO ──────────────────────────────────────────────── -->
+<!-- HERO + INLINE STUDIO -->
 <section id="hero">
-  <div class="hero-glow"></div>
   <div class="hero-inner">
-    <div class="hero-badge">AI Game Studio Engine — Now in Early Access</div>
-    <h1 data-text="From Prompt to Playable.">From Prompt to Playable.<br/>In Minutes.<span class="hero-cursor"></span></h1>
-    <p class="hero-sub">
-      VAF AI Game Generator is the AI Game Studio Engine for Brands, Creators, and Enterprises.
-      Generate professional HTML5 games and interactive simulators — without writing a single line of code.
-    </p>
-    <div class="hero-ctas">
-      <button class="btn-primary" id="hero-open-studio">Genera il Tuo Primo Gioco →</button>
-      <button class="btn-secondary">▶ Guarda il Demo</button>
-    </div>
-    <p class="hero-support">
-      No templates. No drag-and-drop limitations. No developers required.<br/>
-      Professional-grade output from structured prompts.
-    </p>
-  </div>
-</section>
+    <div class="hero-badge">AI Game Studio Engine — Early Access</div>
+    <h1>Da un'idea a un gioco<br/>giocabile. In 60 secondi.</h1>
+    <p class="hero-sub">Descrivi qualsiasi concept — VAF genera un HTML5 game completo con AI. Nessun codice, nessun template.</p>
 
-<div class="divider"></div>
+    <!-- STUDIO BOX INLINE -->
+    <div class="studio-box" id="studio-box">
 
-<!-- ─── WHAT IS ────────────────────────────────────────────── -->
-<section id="what">
-  <div class="what-left">
-    <div class="section-label">The Platform</div>
-    <h2>Not a Builder.<br/>An <span class="gradient-text">AI Game Engine.</span></h2>
-    <p>
-      There is a category of tools that let you assemble games from templates and blocks.
-      VAF AI Game Generator is not that.
-    </p>
-    <p>
-      VAF is an <span class="highlight">AI-native Game Studio Engine</span> — a platform that interprets your intent
-      and constructs complete, playable interactive experiences from the ground up.
-    </p>
-    <p>
-      When you describe a game concept, VAF doesn't pick a template.
-      It generates every layer of your experience simultaneously — logic, assets, mechanics, rewards.
-    </p>
-    <p style="font-size:0.9rem; color: var(--muted);">
-      The output is not a prototype. It is a deployable interactive product.
-    </p>
-  </div>
-  <div class="what-right">
-    <div class="table-wrap">
-      <table class="what-table">
-        <thead>
-          <tr>
-            <th>Output Layer</th>
-            <th>What VAF Generates</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td>Playable Logic</td><td>Rules, win conditions, physics, player flow</td></tr>
-          <tr><td>Asset Layer</td><td>Characters, environments, UI, animations</td></tr>
-          <tr><td>Mechanics</td><td>Controls, events, difficulty scaling</td></tr>
-          <tr><td>Scoring System</td><td>Points, timers, lives, progress tracking</td></tr>
-          <tr><td>Leaderboards</td><td>Global and segmented ranking systems</td></tr>
-          <tr><td>Reward Architecture</td><td>Tokens, badges, unlockables, progression</td></tr>
-          <tr><td>Export Build</td><td>Clean HTML5 deployable anywhere</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
+      <!-- FORM VIEW -->
+      <div id="form-view">
+        <div class="studio-title">VAF Studio</div>
 
-<div class="divider"></div>
+        <div class="error-box" id="error-box"></div>
+        <div class="complexity-warn" id="complexity-warn">
+          <strong>⚠️ Concept ambizioso!</strong>
+          <p id="complexity-msg">L'AI creerà una versione mini giocabile — bilanciata per il browser.</p>
+        </div>
 
-<!-- ─── USE CASES ──────────────────────────────────────────── -->
-<div id="usecases">
-  <div class="section-inner">
-    <div class="section-label">Use Cases</div>
-    <h2>Built for Every Creator.<br/>Scaled for Every Enterprise.</h2>
-    <p>One engine. Four categories of transformative interactive applications.</p>
+        <div class="example-chips" id="example-chips">
+          <span class="chip" data-prompt="Sparatutto spaziale: astronave che distrugge ondate di alieni sempre più veloci. Tre vite, power-up, high score.">🚀 Space Shooter</span>
+          <span class="chip" data-prompt="Quiz trivia sulla storia d'Italia: 10 domande a scelta multipla, 30 secondi per risposta, punteggio finale.">🇮🇹 Quiz Italia</span>
+          <span class="chip" data-prompt="Puzzle match-3 con gemme colorate su griglia 8x8. Trascina per abbinare 3+ gemme dello stesso colore. Livelli progressivi.">💎 Gem Match-3</span>
+          <span class="chip" data-prompt="Simulatore guida: percorso con segnali, stop, precedenze. L'utente rispetta le regole del codice della strada.">🚗 Guida</span>
+          <span class="chip" data-prompt="Platform 2D con personaggio che salta tra piattaforme, evita ostacoli, raccoglie monete. Gravità realistica, 5 livelli.">🏃 Platform</span>
+          <span class="chip" data-prompt="Memory card: griglia 4x4 di carte coperte, trova tutte le coppie nel minor numero di mosse. Timer e contatore.">🃏 Memory</span>
+        </div>
 
-    <div class="usecase-grid">
+        <textarea class="concept-textarea" id="concept" placeholder="Descrivi la tua idea... es. Un gioco di corse in città dove eviti il traffico e raccogli carburante"></textarea>
 
-      <div class="usecase-card">
-        <span class="usecase-icon">🎮</span>
-        <div class="usecase-tag">A — Creators & Studios</div>
-        <h3>Generate Viral Telegram Mini-Games</h3>
-        <p>Design arcade experiences, interactive stories, and competitive mini-games built for the Telegram ecosystem. Drive retention, growth, and community engagement with playable content.</p>
-        <div class="usecase-pills">
-          <span class="pill">Telegram Export</span>
-          <span class="pill">Arcade</span>
-          <span class="pill">Leaderboards</span>
+        <div class="studio-footer">
+          <div class="credit-badge">💎 <strong id="balance-display">20</strong> crediti &nbsp;·&nbsp; 10 cr per gioco</div>
+          <button class="generate-btn" id="generate-btn">⚡ Genera Gioco</button>
         </div>
       </div>
 
-      <div class="usecase-card">
-        <span class="usecase-icon">📣</span>
-        <div class="usecase-tag">B — Brands & Marketing</div>
-        <h3>Turn Your Campaign Into an Experience</h3>
-        <p>Replace passive advertising with branded mini-games users actually engage with. Product quizzes, branded challenges, reward loops — fully aligned with your identity.</p>
-        <div class="usecase-pills">
-          <span class="pill">Brand Games</span>
-          <span class="pill">Embed Ready</span>
-          <span class="pill">Reward Loops</span>
+      <!-- LOADING VIEW -->
+      <div class="gen-loading" id="loading-view">
+        <div class="spinner"></div>
+        <div>
+          <strong>VAF sta costruendo il tuo gioco...</strong>
+          <p>L'AI genera logica, meccaniche e assets.<br/>Di solito 30–90 secondi.</p>
         </div>
+        <div id="loading-steps" style="font-size:0.78rem;color:var(--gold2);"></div>
       </div>
 
-      <div class="usecase-card">
-        <span class="usecase-icon">🏫</span>
-        <div class="usecase-tag">C — Education & Training</div>
-        <h3>Serious Games. Real Outcomes.</h3>
-        <p>Generate fully structured simulators for institutional and professional training environments. Define the scenario, define the objective, receive a deployable simulation.</p>
-        <div class="usecase-pills">
-          <span class="pill">Driving School</span>
-          <span class="pill">Airport Ops</span>
-          <span class="pill">Safety Training</span>
-          <span class="pill">Museum</span>
+      <!-- RESULT VIEW -->
+      <div class="result-panel" id="result-view">
+        <div class="studio-title">Gioco pronto ✓</div>
+        <div class="result-meta" id="result-meta"></div>
+
+        <div class="game-preview-box">
+          <div class="play-icon">🎮</div>
+          <p style="color:var(--muted);font-size:0.88rem;">Gioco generato con successo</p>
+          <button class="generate-btn" id="play-btn" style="padding:0.6rem 1.75rem;font-size:0.9rem;">▶ Gioca ora</button>
         </div>
-      </div>
 
-      <div class="usecase-card">
-        <span class="usecase-icon">⛓️</span>
-        <div class="usecase-tag">D — Web3 Projects</div>
-        <h3>Games That Connect to Your Economy</h3>
-        <p>Token-integrated game experiences with on-chain or off-chain reward logic. Build leaderboard-based distribution models, NFT-gated access, or point-to-token mechanics.</p>
-        <div class="usecase-pills">
-          <span class="pill">Token Rewards</span>
-          <span class="pill">Wallet Connect</span>
-          <span class="pill">Tournament Mode</span>
+        <div class="result-actions">
+          <button class="act-primary" id="download-btn">⬇ Scarica</button>
+          <button class="act-publish" id="publish-toggle-btn">🌐 Pubblica</button>
+          <button id="refine-toggle-btn">✏️ Modifica</button>
+          <button id="new-game-btn">+ Nuovo</button>
         </div>
-      </div>
 
-    </div>
-  </div>
-</div>
-
-<div class="divider"></div>
-
-<!-- ─── HOW IT WORKS ───────────────────────────────────────── -->
-<section id="how">
-  <div class="section-label">Process</div>
-  <h2>Five Steps from Concept to <span class="gradient-text">Deployed Experience</span></h2>
-  <p>Frictionless input. Professional output.</p>
-
-  <div class="steps">
-
-    <div class="step">
-      <div class="step-num">01</div>
-      <div class="step-content">
-        <h3>Describe Your Game Concept</h3>
-        <p>Write a structured prompt describing your game world, target audience, core mechanic, and goals. VAF understands game design language — speak it, or don't. Either way, it listens.</p>
-      </div>
-    </div>
-
-    <div class="step">
-      <div class="step-num">02</div>
-      <div class="step-content">
-        <h3>Choose Your Game Type</h3>
-        <p>Select from VAF's core generation modes: <span class="highlight">Arcade · Simulator · Puzzle · Quiz · Serious Game · Marketing Experience · Web3 Mini-Game</span>. Each activates a dedicated AI pipeline.</p>
-      </div>
-    </div>
-
-    <div class="step">
-      <div class="step-num">03</div>
-      <div class="step-content">
-        <h3>AI Generates Logic, Assets & Mechanics</h3>
-        <p>VAF's engine processes your input across multiple simultaneous layers — generating game logic, visual assets, UI structure, interaction events, and scoring in a single coordinated build cycle.</p>
-      </div>
-    </div>
-
-    <div class="step">
-      <div class="step-num">04</div>
-      <div class="step-content">
-        <h3>Refine with Iterative Prompting</h3>
-        <p>Your first build is a foundation, not a ceiling. Adjust mechanics, difficulty curves, visual style, and reward logic — all through natural language. Each refinement cycle improves precision.</p>
-      </div>
-    </div>
-
-    <div class="step">
-      <div class="step-num">05</div>
-      <div class="step-content">
-        <h3>Export & Deploy</h3>
-        <p>Export as <span class="highlight">HTML5</span> (embeddable anywhere), <span class="highlight">Telegram Mini-App</span> (direct deployment), or <span class="highlight">White-Label Package</span> (enterprise-grade with your branding and infrastructure).</p>
-      </div>
-    </div>
-
-  </div>
-</section>
-
-<div class="divider"></div>
-
-<!-- ─── FEATURES ───────────────────────────────────────────── -->
-<div id="features">
-  <div class="section-inner">
-    <div class="section-label">Capabilities</div>
-    <h2>The Full Stack of <span class="gradient-text">AI-Powered Game Creation</span></h2>
-    <p>Every layer of professional game development — generated by AI.</p>
-
-    <div class="features-grid">
-
-      <div class="feature-card">
-        <div class="feature-icon">🧠</div>
-        <h3>AI Game Logic Engine</h3>
-        <p>Translates prompts into coherent, playable game logic — rules, states, events, and flow — without templates or predefined structures.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">🎨</div>
-        <h3>Dynamic Asset Generator</h3>
-        <p>Visual and UI assets generated in context with your game concept. Characters, environments, icons, backgrounds — consistent and deployment-ready.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">🏆</div>
-        <h3>Leaderboard + Reward System</h3>
-        <p>Native integration of global and segmented leaderboards, score tracking, achievement systems, and reward distribution logic.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">✈️</div>
-        <h3>Telegram Mini-App Export</h3>
-        <p>Direct export pipeline for the Telegram Mini-App ecosystem. Deploy where your audience lives — with no additional development overhead.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">🏷️</div>
-        <h3>White-Label Deployment</h3>
-        <p>Enterprise clients receive fully branded deployments. Remove all VAF attribution. Deploy under your own domain, brand, and infrastructure.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">🔌</div>
-        <h3>API Access — Enterprise</h3>
-        <p>Programmatic access to VAF's generation engine. Embed AI game creation into your own products, platforms, or internal tooling.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">💎</div>
-        <h3>Credit-Based Generation</h3>
-        <p>A transparent, scalable compute model. Every generation, refinement, and export consumes credits — ensuring fair resource allocation at any scale.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">👥</div>
-        <h3>Multiplayer-Ready Architecture</h3>
-        <p>Generated games can be scaffolded with session management, real-time score syncing, and competitive match structures without additional development.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">🪙</div>
-        <h3>Token & Points Integration</h3>
-        <p>Native support for token reward systems, point economies, and on-chain or off-chain reward distribution — built for Web3 and loyalty platforms.</p>
-      </div>
-
-    </div>
-  </div>
-</div>
-
-<div class="divider"></div>
-
-<!-- ─── CREDITS ────────────────────────────────────────────── -->
-<section id="credits">
-  <div class="section-label">Sustainability Model</div>
-  <h2>Credits Power the Engine.<br/>The Engine Powers <span class="gradient-text">Your Games.</span></h2>
-  <p>A transparent, scalable system for predictable access to compute resources without hidden costs.</p>
-
-  <div class="credits-layout">
-    <div>
-      <div class="credit-table-wrap">
-        <table class="credit-table">
-          <thead>
-            <tr>
-              <th>Action</th>
-              <th>Credit Consumption</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>Game Generation (Standard)</td><td>Base allocation</td></tr>
-            <tr><td>Simulator Generation (Complex)</td><td>Extended allocation</td></tr>
-            <tr><td>Iterative Refinement</td><td>Per-cycle deduction</td></tr>
-            <tr><td>Asset Generation</td><td>Proportional to volume</td></tr>
-            <tr><td>HTML5 / Telegram Export</td><td>Single-cycle deduction</td></tr>
-            <tr><td>API Calls (Enterprise)</td><td>Volume-based pricing</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="plans">
-      <div class="plan-card">
-        <div class="plan-name">Starter</div>
-        <h3>For Creators & Independents</h3>
-        <p>Entry-level credit bundle for solo creators and independent projects. Includes unused credit rollover.</p>
-      </div>
-      <div class="plan-card featured">
-        <div class="plan-name">Growth</div>
-        <h3>For Studios & Teams</h3>
-        <p>Expanded credits with higher complexity limits, priority generation queues, and team collaboration features.</p>
-      </div>
-      <div class="plan-card">
-        <div class="plan-name">Enterprise</div>
-        <h3>For Organizations at Scale</h3>
-        <p>Bulk credit allocation with dedicated infrastructure, SLA guarantees, API access, and custom credit structures negotiated by volume.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<div class="divider"></div>
-
-<!-- ─── ENTERPRISE ─────────────────────────────────────────── -->
-<div id="enterprise">
-  <div class="section-inner">
-    <div class="enterprise-layout">
-
-      <div class="enterprise-left">
-        <div class="section-label">Enterprise</div>
-        <h2>The AI Game Studio for Organizations That <span class="gradient-text">Build at Scale.</span></h2>
-        <p>VAF Enterprise is designed for organizations that require professional-grade interactive experiences — delivered reliably, deployed securely, and scaled without compromise.</p>
-        <div class="enterprise-targets">
-          <span class="enterprise-pill">Brands & Agencies</span>
-          <span class="enterprise-pill">Game Studios</span>
-          <span class="enterprise-pill">Educational Institutions</span>
-          <span class="enterprise-pill">Web3 Projects</span>
-          <span class="enterprise-pill">Corporate Training</span>
-        </div>
-        <button class="btn-primary">Request Enterprise Access →</button>
-        <p style="margin-top:0.75rem; font-size:0.8rem; color:var(--muted);">Custom pricing. Tailored infrastructure. Dedicated onboarding.</p>
-      </div>
-
-      <div class="enterprise-features">
-        <div class="ent-feature">
-          <div class="ent-feature-icon">🛠️</div>
-          <div>
-            <h3>Custom Simulator Creation</h3>
-            <p>Dedicated generation sessions with structured prompt engineering support — producing simulators tuned to your specific scenario, compliance requirements, and audience.</p>
+        <!-- PUBLISH PANEL -->
+        <div class="publish-panel" id="publish-panel">
+          <input class="pub-input" type="text" id="publish-name" placeholder="Nome del gioco" />
+          <input class="pub-input" type="text" id="publish-desc" placeholder="Descrizione breve" />
+          <button class="generate-btn" id="publish-btn" style="width:100%;background:linear-gradient(135deg,#d4af37,#c4a35a);">🚀 Pubblica nella Gallery</button>
+          <div class="pub-success" id="publish-success">
+            <p>✅ Pubblicato! Ora appare nella Gallery pubblica.</p>
+            <div class="pub-link" id="pub-link-display"></div>
           </div>
         </div>
-        <div class="ent-feature">
-          <div class="ent-feature-icon">🎯</div>
-          <div>
-            <h3>Dedicated AI Tuning</h3>
-            <p>Model fine-tuning aligned to your brand voice, visual style, and game design preferences — improving output quality with every iteration.</p>
-          </div>
-        </div>
-        <div class="ent-feature">
-          <div class="ent-feature-icon">🏷️</div>
-          <div>
-            <h3>White-Label Deployment</h3>
-            <p>Full white-label infrastructure. Your brand. Your domain. Your product. VAF runs invisibly beneath the surface.</p>
-          </div>
-        </div>
-        <div class="ent-feature">
-          <div class="ent-feature-icon">🔌</div>
-          <div>
-            <h3>API Integration</h3>
-            <p>Embed VAF's generation engine directly into your internal platforms, content management systems, or client-facing products.</p>
-          </div>
+
+        <!-- REFINE PANEL -->
+        <div class="refine-panel" id="refine-panel">
+          <textarea class="concept-textarea" id="refine-input" placeholder="Cosa vuoi cambiare? Es. Rendi i nemici più veloci, aggiungi uno scudo..." rows="2" style="margin-bottom:0.6rem;"></textarea>
+          <button class="generate-btn" id="refine-btn" style="width:100%;">⚡ Applica modifica (3 crediti)</button>
         </div>
       </div>
 
-    </div>
-  </div>
-</div>
+    </div><!-- /studio-box -->
 
-<div class="divider"></div>
-
-<!-- ─── SHOWCASE ───────────────────────────────────────────── -->
-<section id="showcase">
-  <div class="section-label">Generated Experiences</div>
-  <h2>What VAF Has Already Built</h2>
-  <p>Six experiences. Zero developers. All generated through VAF AI Game Generator.</p>
-
-  <div class="showcase-grid">
-
-    <div class="showcase-card">
-      <div class="showcase-thumb">✈️</div>
-      <div class="showcase-body">
-        <div class="showcase-type">Serious Simulator</div>
-        <h3>Airport Ground Ops Simulator</h3>
-        <p>A full-cycle airport ground operations training simulator covering marshalling, baggage logistics, and emergency protocol response.</p>
-      </div>
-    </div>
-
-    <div class="showcase-card">
-      <div class="showcase-thumb">⛓️</div>
-      <div class="showcase-body">
-        <div class="showcase-type">Web3 Mini-Game</div>
-        <h3>Crypto Quest Arena</h3>
-        <p>A competitive token-reward arcade game where players earn on-chain points through skill-based challenges across dynamic levels.</p>
-      </div>
-    </div>
-
-    <div class="showcase-card">
-      <div class="showcase-thumb">🏛️</div>
-      <div class="showcase-body">
-        <div class="showcase-type">Educational Experience</div>
-        <h3>Museum Explorer Interactive</h3>
-        <p>A self-guided digital museum experience with knowledge gates, artifact discovery mechanics, and curator narrative layers.</p>
-      </div>
-    </div>
-
-    <div class="showcase-card">
-      <div class="showcase-thumb">🚗</div>
-      <div class="showcase-body">
-        <div class="showcase-type">Serious Simulator</div>
-        <h3>DriveTest Pro</h3>
-        <p>A driving theory and hazard perception simulator aligned to national licensing exam standards — fully configurable by region.</p>
-      </div>
-    </div>
-
-    <div class="showcase-card">
-      <div class="showcase-thumb">🚢</div>
-      <div class="showcase-body">
-        <div class="showcase-type">Simulator</div>
-        <h3>Cruise Captain Challenge</h3>
-        <p>A maritime operations experience placing players in command of a cruise vessel across passenger management, navigation, and crisis scenarios.</p>
-      </div>
-    </div>
-
-    <div class="showcase-card">
-      <div class="showcase-thumb">🎮</div>
-      <div class="showcase-body">
-        <div class="showcase-type">Creator Mini-Game</div>
-        <h3>Telegram Battle Royale Mini</h3>
-        <p>A fast-session competitive mini-game built natively for Telegram — leaderboard-driven, shareable, and designed for viral community growth.</p>
-      </div>
-    </div>
-
-  </div>
-
-  <div style="margin-top:2.5rem;">
-    <button class="btn-primary">Generate Your Own →</button>
   </div>
 </section>
 
-<div class="divider"></div>
-
-<!-- ─── VISION ─────────────────────────────────────────────── -->
-<div id="vision">
-  <div class="section-inner">
-    <div class="section-label">Vision</div>
-    <h2>The Infrastructure Layer for<br/><span class="gradient-text">AI-Generated Interactive Experiences.</span></h2>
-
-    <p class="vision-quote">
-      "Unity gave independent studios the engine previously exclusive to AAA development teams.
-      VAF AI Game Generator gives every brand, creator, educator, and organization the equivalent capability — without the studio."
-    </p>
-
-    <div class="vision-grid">
-      <div class="vision-card">
-        <h3>Real-Time Collaborative Generation</h3>
-        <p>Multi-user prompting environments for teams — simultaneous design sessions with shared generation context.</p>
-      </div>
-      <div class="vision-card">
-        <h3>Cross-Platform Native Export</h3>
-        <p>iOS, Android, and web from a single generation cycle. One prompt. Every platform.</p>
-      </div>
-      <div class="vision-card">
-        <h3>AI Director System</h3>
-        <p>Dynamic difficulty, narrative adaptation, and behavioral personalization at runtime — without code changes.</p>
-      </div>
-      <div class="vision-card">
-        <h3>VAF Marketplace</h3>
-        <p>A curated ecosystem of AI-generated games licensed, remixed, and monetized by creators worldwide.</p>
-      </div>
-      <div class="vision-card">
-        <h3>Enterprise API Network</h3>
-        <p>A B2B infrastructure layer enabling third-party platforms to embed AI game generation as a native capability.</p>
-      </div>
-      <div class="vision-card">
-        <h3>The Interactive Internet</h3>
-        <p>The interactive layer of the internet is being rebuilt. VAF is the engine that will generate it.</p>
-      </div>
-    </div>
-
-    <div class="vision-ctas">
-      <button class="btn-primary">Join the Waitlist →</button>
-      <button class="btn-secondary">Read the Vision Paper →</button>
-    </div>
-  </div>
-</div>
-
-<!-- ─── GALLERY PUBBLICA ──────────────────────────────────── -->
-<div class="divider"></div>
-
+<!-- GALLERY -->
 <section id="gallery">
-  <div class="section-label">Community Gallery</div>
-  <h2>Giochi Creati dalla Community 🌍</h2>
-  <p>Esplora i giochi pubblicati dagli altri utenti — giocali subito o usa "Remix" per farne la tua versione.</p>
-
-  <div id="gallery-container">
-    <div class="gallery-loading">⏳ Caricamento giochi...</div>
+  <div class="gallery-header">
+    <h2>Giochi della <span>Community</span> 🌍</h2>
+    <button class="btn-refresh" id="gallery-refresh-btn">🔄 Aggiorna</button>
   </div>
-
-  <button class="btn-secondary" id="gallery-refresh-btn" style="margin-top:1.5rem;">🔄 Aggiorna</button>
+  <div id="gallery-container">
+    <div class="gallery-loading">⏳ Caricamento...</div>
+  </div>
 </section>
 
-<div class="divider"></div>
-
-<!-- ─── FOOTER ─────────────────────────────────────────────── -->
+<!-- FOOTER -->
 <footer>
-  <div class="footer-inner">
-    <div class="footer-top">
-      <div class="footer-brand">
-        <div class="footer-logo">VAF AI Game Generator</div>
-        <p>The AI Game Studio Engine for Brands, Creators, and Enterprises. From prompt to playable — in minutes.</p>
-      </div>
-      <div class="footer-col">
-        <h4>Product</h4>
-        <ul>
-          <li><a href="#">Generate</a></li>
-          <li><a href="#">Pricing</a></li>
-          <li><a href="#">Showcase</a></li>
-          <li><a href="#">Roadmap</a></li>
-          <li><a href="#">Changelog</a></li>
-        </ul>
-      </div>
-      <div class="footer-col">
-        <h4>Enterprise</h4>
-        <ul>
-          <li><a href="#">Enterprise Plan</a></li>
-          <li><a href="#">White-Label</a></li>
-          <li><a href="#">Custom Builds</a></li>
-          <li><a href="#">Request Access</a></li>
-          <li><a href="#">API Reference</a></li>
-        </ul>
-      </div>
-      <div class="footer-col">
-        <h4>Company</h4>
-        <ul>
-          <li><a href="#">Docs</a></li>
-          <li><a href="#">Blog</a></li>
-          <li><a href="#">Community</a></li>
-          <li><a href="#">Terms of Service</a></li>
-          <li><a href="#">Privacy Policy</a></li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="footer-bottom">
-      <p>© 2025 VAF AI Game Generator. All rights reserved. Built on proprietary AI infrastructure.</p>
-      <div class="footer-socials">
-        <a href="#" title="Telegram">✈</a>
-        <a href="#" title="Twitter/X">𝕏</a>
-        <a href="#" title="Discord">💬</a>
-        <a href="#" title="GitHub">⌨</a>
-      </div>
-    </div>
-  </div>
+  <p>© 2025 VAF AI Game Generator · <a href="#">Privacy</a> · <a href="#">Terms</a> · Built on Claude AI</p>
 </footer>
 
-<!-- ─── MATRIX CANVAS (visibile solo quando il modal è aperto) ── -->
+<!-- CREDIT BADGE -->
+<div id="credit-bar">💎 <span class="cc" id="credit-display">20</span> crediti</div>
+
+<!-- MATRIX OVERLAY (per animazione) -->
 <canvas id="matrix-canvas"></canvas>
 
-<!-- ─── CREDIT BADGE ──────────────────────────────────────────── -->
-<div id="credit-bar">
-  💎 <span class="credit-count" id="credit-display">20</span> crediti
-</div>
-
-<!-- ─── STUDIO MODAL ──────────────────────────────────────────── -->
-<div class="modal-overlay" id="studio-modal">
-  <div class="modal">
-    <button class="modal-close" id="modal-close">✕</button>
-
-    <!-- FORM VIEW -->
-    <div id="form-view">
-      <div class="section-label">VAF Studio</div>
-      <h2>Crea il tuo gioco</h2>
-      <p style="margin-bottom:1.25rem;color:var(--muted);font-size:0.9rem;">Descrivi qualsiasi idea — l'AI la trasforma in un gioco playable. Nessun limite di tipo.</p>
-
-      <div class="error-box" id="error-box"></div>
-      <div class="complexity-warn" id="complexity-warn">
-        <strong>⚠️ Idea molto ambiziosa!</strong>
-        <p id="complexity-msg">Il concetto è molto complesso. L'AI creerà una versione giocabile e bilanciata dell'idea.</p>
-      </div>
-
-      <!-- 6 ESEMPI -->
-      <div style="margin-bottom:0.5rem;">
-        <label style="display:block;font-size:0.75rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:0.6rem;">💡 Idee di esempio — clicca per usarle</label>
-        <div class="example-grid" id="example-grid">
-          <div class="example-card" data-prompt="Sparatutto spaziale: l'utente pilota un'astronave e deve distruggere ondate di alieni sempre più veloci. Tre vite, power-up casuali, high score.">
-            <span class="ex-icon">🚀</span>
-            <div class="ex-title">Space Shooter</div>
-            <div class="ex-desc">Difendi la galassia da ondate di alieni</div>
-          </div>
-          <div class="example-card" data-prompt="Quiz trivia sulla storia d'Italia: 10 domande a scelta multipla, 30 secondi per risposta, punteggio finale e classifica personale.">
-            <span class="ex-icon">🇮🇹</span>
-            <div class="ex-title">Quiz Storia d'Italia</div>
-            <div class="ex-desc">10 domande, timer, punteggio finale</div>
-          </div>
-          <div class="example-card" data-prompt="Puzzle match-3 con gemme colorate su griglia 8x8. Trascina per abbinare 3 o più gemme dello stesso colore. Livelli progressivi con obiettivi di punteggio.">
-            <span class="ex-icon">💎</span>
-            <div class="ex-title">Gem Match-3</div>
-            <div class="ex-desc">Abbina gemme, livelli progressivi</div>
-          </div>
-          <div class="example-card" data-prompt="Simulatore guida: percorso stradale con segnali, stop, precedenze e dossi. L'utente deve rispettare le regole del codice della strada per completare il percorso senza infrazioni.">
-            <span class="ex-icon">🚗</span>
-            <div class="ex-title">Codice della Strada</div>
-            <div class="ex-desc">Simulatore guida con regole reali</div>
-          </div>
-          <div class="example-card" data-prompt="Gioco platform 2D con un personaggio che salta tra piattaforme, evita ostacoli e raccoglie monete. Gravità realistica, 5 livelli con difficoltà crescente.">
-            <span class="ex-icon">🏃</span>
-            <div class="ex-title">Platform Runner</div>
-            <div class="ex-desc">Salta, evita ostacoli, raccogli monete</div>
-          </div>
-          <div class="example-card" data-prompt="Gioco memory card: griglia 4x4 di carte coperte con simboli, il giocatore deve trovare tutte le coppie nel minor numero di mosse. Timer e contatore mosse.">
-            <span class="ex-icon">🃏</span>
-            <div class="ex-title">Memory Cards</div>
-            <div class="ex-desc">Trova le coppie, meno mosse vinci</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- CONCEPT -->
-      <div class="form-group">
-        <label>Oppure descrivi la tua idea *</label>
-        <textarea id="concept" placeholder="Es. Un gioco di corse in città dove eviti il traffico, raccogli carburante e batti il record di tempo..." rows="3"></textarea>
-      </div>
-
-      <!-- COSTO + GENERA -->
-      <div class="credit-info">
-        <span>💎 Saldo: <strong id="balance-display">20</strong> crediti</span>
-        <span style="color:var(--muted);font-size:0.78rem;">Ogni gioco costa 10 cr</span>
-      </div>
-
-      <button class="generate-btn" id="generate-btn">
-        ⚡ Genera Gioco
-      </button>
-    </div>
-
-    <!-- LOADING VIEW -->
-    <div class="gen-loading" id="loading-view">
-      <div class="spinner"></div>
-      <div>
-        <strong>VAF sta costruendo il tuo gioco...</strong>
-        <p>L'AI sta generando logica, meccaniche e assets.<br/>Di solito ci vogliono 30–60 secondi.</p>
-      </div>
-      <div id="loading-steps" style="font-size:0.8rem;color:var(--accent2);text-align:center;"></div>
-    </div>
-
-    <!-- RESULT VIEW -->
-    <div class="result-panel" id="result-view">
-      <div class="section-label">Gioco pronto ✓</div>
-      <h2 style="margin-bottom:0.5rem;">Il tuo gioco è stato generato!</h2>
-      <div class="result-meta" id="result-meta" style="margin-bottom:1.25rem;"></div>
-
-      <!-- ANTEPRIMA -->
-      <div style="
-        width:100%; height:280px; border:1px solid var(--border); border-radius:14px;
-        background: linear-gradient(135deg, rgba(124,58,237,0.08), rgba(212,175,55,0.06));
-        display:flex; flex-direction:column; align-items:center; justify-content:center;
-        gap:1rem; margin-bottom:1.25rem;">
-        <span style="font-size:3.5rem;">🎮</span>
-        <p style="color:var(--muted);font-size:0.9rem;">Gioco generato con successo</p>
-        <button class="generate-btn" id="play-btn" style="width:auto;padding:0.7rem 2rem;font-size:0.95rem;">
-          ▶ Gioca ora
-        </button>
-      </div>
-
-      <!-- AZIONI -->
-      <div class="result-actions" style="margin-bottom:1rem;">
-        <button class="primary-action" id="download-btn">⬇ Scarica</button>
-        <button id="publish-toggle-btn" style="background:rgba(212,175,55,0.12);border-color:rgba(212,175,55,0.35);color:#d4af37;">🌐 Pubblica</button>
-        <button id="refine-toggle-btn">✏️ Modifica</button>
-        <button id="new-game-btn">+ Nuovo</button>
-      </div>
-
-      <!-- PUBLISH -->
-      <div class="publish-panel" id="publish-panel">
-        <h3>🌐 Pubblica sulla piattaforma</h3>
-        <div class="form-group">
-          <label>Nome del gioco</label>
-          <input type="text" id="publish-name" placeholder="Es. Space Shooter Pro" />
-        </div>
-        <div class="form-group">
-          <label>Descrizione breve</label>
-          <input type="text" id="publish-desc" placeholder="Es. Sparatutto spaziale con 5 livelli di difficoltà" />
-        </div>
-        <button class="generate-btn" id="publish-btn" style="background:linear-gradient(135deg,#d4af37,#c4a35a);margin-bottom:0.75rem;">
-          🚀 Pubblica ora
-        </button>
-        <div class="publish-success" id="publish-success">
-          <p>✅ Gioco pubblicato con successo!</p>
-          <div class="pub-link" id="pub-link-display"></div>
-          <p style="margin-top:0.5rem;font-size:0.8rem;color:var(--muted);">Chiunque può giocare con questo link.</p>
-        </div>
-      </div>
-
-      <!-- REFINE -->
-      <div class="refine-panel" id="refine-panel">
-        <div class="form-group">
-          <label>Cosa vuoi cambiare?</label>
-          <textarea id="refine-input" placeholder="Es. Rendi i nemici più veloci, aggiungi uno scudo, cambia i colori in neon blu" rows="2"></textarea>
-        </div>
-        <button class="generate-btn" id="refine-btn">⚡ Applica modifica (3 crediti)</button>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<!-- ─── JAVASCRIPT ────────────────────────────────────────────── -->
 <script>
-  // Auto-detect API base: works both via server and file://
   const API = (location.protocol === 'file:' || location.hostname === '')
-    ? 'http://localhost:3000/api'
+    ? 'http://localhost:4000/api'
     : `${location.protocol}//${location.host}/api`;
-  // Unique persistent user ID per browser (no login needed)
+
+  // Unique user ID per browser
   let USER_ID = localStorage.getItem('vaf_user_id');
   if (!USER_ID) {
     USER_ID = 'u_' + Math.random().toString(36).substr(2,9) + '_' + Date.now().toString(36);
     localStorage.setItem('vaf_user_id', USER_ID);
   }
 
-  // ─── STATE ────────────────────────────────────────────────────
   let currentGameId = null;
-  let currentGameHtml = '';
   let credits = 20;
 
-  // ─── ELEMENTS ─────────────────────────────────────────────────
-  const modal        = document.getElementById('studio-modal');
   const formView     = document.getElementById('form-view');
   const loadingView  = document.getElementById('loading-view');
   const resultView   = document.getElementById('result-view');
@@ -2035,53 +593,41 @@
   const generateBtn  = document.getElementById('generate-btn');
   const balanceDisp  = document.getElementById('balance-display');
   const creditDisp   = document.getElementById('credit-display');
-  const refinePanel  = document.getElementById('refine-panel');
-  const refineInput  = document.getElementById('refine-input');
-  const refineBtn    = document.getElementById('refine-btn');
-  const resultMeta   = document.getElementById('result-meta');
   const publishPanel = document.getElementById('publish-panel');
   const publishSucc  = document.getElementById('publish-success');
+  const refinePanel  = document.getElementById('refine-panel');
+  const resultMeta   = document.getElementById('result-meta');
 
-  // ─── OPEN / CLOSE MODAL ───────────────────────────────────────
-  function openStudio() {
-    modal.classList.add('open');
-    document.body.style.overflow = 'hidden';
-    fetchBalance();
-  }
-
-  function closeStudio() {
-    modal.classList.remove('open');
-    document.body.style.overflow = '';
-  }
-
-  // (listeners gestiti sotto con Matrix rain)
-
-  // ─── EXAMPLE CARDS ────────────────────────────────────────────
-  document.getElementById('example-grid').addEventListener('click', e => {
-    const card = e.target.closest('.example-card');
-    if (!card) return;
-    conceptInput.value = card.dataset.prompt;
-    conceptInput.focus();
-    checkComplexity(card.dataset.prompt);
-  });
-
-  // ─── COMPLEXITY DETECTOR ──────────────────────────────────────
-  const COMPLEX_KEYWORDS = ['gta','grand theft','pokemon','zelda','mario','minecraft','fortnite','call of duty','battlefield','world of warcraft','mmorpg','rpg aperto','open world','mondo aperto','3d','multiplayer online','real-time strategy','rts','moba','battle royale','100 giocatori','milioni','massively'];
-
+  // ── COMPLEXITY ──
+  const COMPLEX_KW = ['gta','grand theft','pokemon','zelda','mario','minecraft','fortnite','call of duty','battlefield','mmorpg','open world','mondo aperto','multiplayer online','real-time strategy','battle royale','massively'];
   function checkComplexity(text) {
-    const lower = text.toLowerCase();
-    const hit = COMPLEX_KEYWORDS.find(k => lower.includes(k));
+    const hit = COMPLEX_KW.find(k => text.toLowerCase().includes(k));
     if (hit) {
-      complexMsg.textContent = `"${hit.charAt(0).toUpperCase()+hit.slice(1)}" è un concept molto grande. L'AI creerà una versione mini giocabile — bilanciata per funzionare perfettamente nel browser.`;
+      complexMsg.textContent = `"${hit}" è un concept molto grande — l'AI farà una versione mini giocabile e bilanciata.`;
       complexWarn.classList.add('visible');
     } else {
       complexWarn.classList.remove('visible');
     }
   }
-
   conceptInput.addEventListener('input', () => checkComplexity(conceptInput.value));
 
-  // ─── FETCH BALANCE ────────────────────────────────────────────
+  // ── EXAMPLE CHIPS ──
+  document.getElementById('example-chips').addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    conceptInput.value = chip.dataset.prompt;
+    checkComplexity(chip.dataset.prompt);
+    conceptInput.focus();
+  });
+
+  // ── NAV CTA scroll ──
+  document.getElementById('nav-cta').addEventListener('click', e => {
+    e.preventDefault();
+    document.getElementById('hero').scrollIntoView({ behavior: 'smooth' });
+    setTimeout(() => conceptInput.focus(), 500);
+  });
+
+  // ── BALANCE ──
   async function fetchBalance() {
     try {
       const res  = await fetch(`${API}/credits/balance`, { headers: { 'x-user-id': USER_ID } });
@@ -2092,301 +638,133 @@
     } catch (_) {}
   }
 
-  // ─── SHOW / HIDE VIEWS ────────────────────────────────────────
+  // ── VIEWS ──
   function showForm()    { formView.style.display='block'; loadingView.classList.remove('visible'); resultView.classList.remove('visible'); }
   function showLoading() {
-    formView.style.display='none';
-    loadingView.classList.add('visible');
-    resultView.classList.remove('visible');
-    // Anima i messaggi di stato
-    const steps = ['Analisi del concetto...','Costruzione della logica di gioco...','Generazione delle meccaniche...','Creazione degli asset visivi...','Compilazione del codice...','Quasi pronto...'];
-    let i = 0;
-    const el = document.getElementById('loading-steps');
-    if (window._loadingInterval) clearInterval(window._loadingInterval);
+    formView.style.display='none'; loadingView.classList.add('visible'); resultView.classList.remove('visible');
+    const steps = ['Analisi del concept...','Costruzione della logica...','Generazione delle meccaniche...','Creazione degli asset...','Compilazione...','Quasi pronto...'];
+    let i = 0; const el = document.getElementById('loading-steps');
+    if (window._li) clearInterval(window._li);
     el.textContent = steps[0];
-    window._loadingInterval = setInterval(() => {
-      i = (i + 1) % steps.length;
-      el.textContent = steps[i];
-    }, 5000);
+    window._li = setInterval(() => { i = (i+1)%steps.length; el.textContent = steps[i]; }, 5000);
   }
-  function showResult()  {
-    formView.style.display='none';
-    loadingView.classList.remove('visible');
-    resultView.classList.add('visible');
-    if (window._loadingInterval) clearInterval(window._loadingInterval);
+  function showResult() {
+    formView.style.display='none'; loadingView.classList.remove('visible'); resultView.classList.add('visible');
+    if (window._li) clearInterval(window._li);
   }
+  function showError(msg) { errorBox.textContent = msg; errorBox.classList.add('visible'); }
+  function clearError()   { errorBox.classList.remove('visible'); }
 
-  function showError(msg) {
-    errorBox.textContent = msg;
-    errorBox.classList.add('visible');
-  }
-  function clearError() { errorBox.classList.remove('visible'); }
-
-  // ─── GENERATE GAME ────────────────────────────────────────────
+  // ── GENERATE ──
   generateBtn.addEventListener('click', async () => {
     clearError();
     const concept = conceptInput.value.trim();
-
-    if (concept.length < 10) {
-      showError('Descrivi il tuo gioco con almeno 10 caratteri.');
-      return;
-    }
-
+    if (concept.length < 10) { showError('Descrivi il gioco con almeno 10 caratteri.'); return; }
     showLoading();
-
     try {
-      const res = await fetch(`${API}/generate`, {
+      const res  = await fetch(`${API}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
         body: JSON.stringify({ concept })
       });
-
       const data = await res.json();
+      if (!res.ok) { showForm(); showError(data.error || 'Generazione fallita. Riprova.'); return; }
 
-      if (!res.ok) {
-        showForm();
-        showError(data.error || 'Generazione fallita. Riprova.');
-        return;
-      }
-
-      currentGameId  = data.gameId;
-      currentGameHtml = data.html;
+      currentGameId = data.gameId;
       credits = data.newCreditBalance;
-      creditDisp.textContent  = credits;
-      balanceDisp.textContent = credits;
+      creditDisp.textContent = balanceDisp.textContent = credits;
 
       resultMeta.innerHTML = `
-        <div class="meta-badge">Crediti usati: <span>${data.creditCost}</span></div>
+        <div class="meta-badge">Crediti: <span>${data.creditCost}</span></div>
         <div class="meta-badge">Saldo: <span>${data.newCreditBalance}</span></div>
         <div class="meta-badge">Tempo: <span>${data.generationTimeSeconds}s</span></div>
+        ${data.downscaled ? '<div class="meta-badge" style="color:#d4af37;border-color:rgba(212,175,55,0.3);">⚡ Downscaled</div>' : ''}
       `;
 
-      document.getElementById('play-btn').onclick = () => {
-        window.open(`${API}/games/${currentGameId}/preview`, '_blank');
-      };
-
+      document.getElementById('play-btn').onclick = () => window.open(`${API}/games/${currentGameId}/preview`, '_blank');
       refinePanel.classList.remove('visible');
       publishPanel.classList.remove('visible');
       publishSucc.classList.remove('visible');
       document.getElementById('publish-name').value = '';
       document.getElementById('publish-desc').value = '';
       showResult();
-
-    } catch (err) {
-      showForm();
-      showError('Impossibile connettersi al server VAF. Assicurati che sia avviato sulla porta 3000.');
+    } catch(e) {
+      showForm(); showError('Impossibile connettersi al server.');
     }
   });
 
-  // ─── DOWNLOAD ─────────────────────────────────────────────────
+  // ── DOWNLOAD ──
   document.getElementById('download-btn').addEventListener('click', () => {
-    if (!currentGameId) return;
-    window.open(`${API}/games/${currentGameId}/download`, '_blank');
+    if (currentGameId) window.open(`${API}/games/${currentGameId}/download`, '_blank');
   });
 
-  // ─── NEW GAME ──────────────────────────────────────────────────
+  // ── NEW GAME ──
   document.getElementById('new-game-btn').addEventListener('click', () => {
-    currentGameId = null;
-    currentGameHtml = '';
-    conceptInput.value = '';
+    currentGameId = null; conceptInput.value = '';
     complexWarn.classList.remove('visible');
-    showForm();
-    fetchBalance();
+    showForm(); fetchBalance();
   });
 
-  // ─── PUBLISH TOGGLE ───────────────────────────────────────────
+  // ── PUBLISH TOGGLE ──
   document.getElementById('publish-toggle-btn').addEventListener('click', () => {
     publishPanel.classList.toggle('visible');
     refinePanel.classList.remove('visible');
   });
 
-  // ─── PUBLISH GAME ─────────────────────────────────────────────
+  // ── PUBLISH ──
   document.getElementById('publish-btn').addEventListener('click', async () => {
     if (!currentGameId) return;
     const name = document.getElementById('publish-name').value.trim() || 'Il mio gioco VAF';
     const desc = document.getElementById('publish-desc').value.trim() || '';
-    const pubBtn = document.getElementById('publish-btn');
-    pubBtn.disabled = true;
-    pubBtn.textContent = 'Pubblicazione...';
+    const btn  = document.getElementById('publish-btn');
+    btn.disabled = true; btn.textContent = 'Pubblicazione...';
     try {
-      const res = await fetch(`${API}/games/${currentGameId}/publish`, {
+      const res  = await fetch(`${API}/games/${currentGameId}/publish`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
         body: JSON.stringify({ name, description: desc })
       });
       const data = await res.json();
-      if (!res.ok) { alert(data.error || 'Errore pubblicazione.'); return; }
+      if (!res.ok) { alert(data.error || 'Errore.'); return; }
       const link = `${location.protocol}//${location.host}${data.previewUrl}`;
       document.getElementById('pub-link-display').textContent = link;
       publishSucc.classList.add('visible');
-      pubBtn.style.display = 'none';
-      // Refresh gallery if visible
+      btn.style.display = 'none';
       loadGallery();
-    } catch(e) {
-      alert('Errore durante la pubblicazione. Riprova.');
-    } finally {
-      pubBtn.disabled = false;
-      if (pubBtn.style.display !== 'none') pubBtn.textContent = '🚀 Pubblica ora';
-    }
+    } catch(e) { alert('Errore pubblicazione.'); }
+    finally { btn.disabled = false; if (btn.style.display !== 'none') btn.textContent = '🚀 Pubblica nella Gallery'; }
   });
 
-  // ─── REFINE TOGGLE ────────────────────────────────────────────
+  // ── REFINE TOGGLE ──
   document.getElementById('refine-toggle-btn').addEventListener('click', () => {
     refinePanel.classList.toggle('visible');
     publishPanel.classList.remove('visible');
   });
 
-  // ─── REFINE GAME ──────────────────────────────────────────────
-  refineBtn.addEventListener('click', async () => {
-    const refinementPrompt = refineInput.value.trim();
+  // ── REFINE ──
+  document.getElementById('refine-btn').addEventListener('click', async () => {
+    const refinementPrompt = document.getElementById('refine-input').value.trim();
     if (!refinementPrompt || !currentGameId) return;
-
-    refineBtn.disabled = true;
-    refineBtn.textContent = 'Refining...';
-
+    const btn = document.getElementById('refine-btn');
+    btn.disabled = true; btn.textContent = 'Elaborazione...';
     try {
-      const res = await fetch(`${API}/generate/refine`, {
+      const res  = await fetch(`${API}/generate/refine`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': USER_ID
-        },
+        headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
         body: JSON.stringify({ gameId: currentGameId, refinementPrompt })
       });
-
       const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.error || 'Refinement failed.');
-        return;
-      }
-
-      gameFrame.srcdoc = data.html;
+      if (!res.ok) { alert(data.error || 'Refinement fallito.'); return; }
       credits = data.newCreditBalance;
-      creditDisp.textContent = credits;
-      refineInput.value = '';
+      creditDisp.textContent = balanceDisp.textContent = credits;
+      document.getElementById('refine-input').value = '';
       refinePanel.classList.remove('visible');
-
-    } catch (err) {
-      alert('Could not connect to VAF server.');
-    } finally {
-      refineBtn.disabled = false;
-      refineBtn.textContent = '⚡ Apply Refinement (3 credits)';
-    }
+    } catch(e) { alert('Errore connessione.'); }
+    finally { btn.disabled = false; btn.textContent = '⚡ Applica modifica (3 crediti)'; }
   });
 
-  // ─── MATRIX RAIN ──────────────────────────────────────────────
-  const matrixCanvas = document.getElementById('matrix-canvas');
-  const ctx = matrixCanvas.getContext('2d');
-  let matrixRunning = false;
-  let matrixFrame;
-
-  function startMatrix() {
-    matrixCanvas.width  = window.innerWidth;
-    matrixCanvas.height = window.innerHeight;
-    matrixCanvas.style.display = 'block';
-
-    const cols = Math.floor(matrixCanvas.width / 18);
-    const drops = Array(cols).fill(1);
-    const chars = 'VAFAIGAMEアイウエオカキクケコサシスセソタチツテト0123456789ABCDEF∑∆∇∞≈';
-
-    matrixRunning = true;
-
-    function draw() {
-      if (!matrixRunning) return;
-      ctx.fillStyle = 'rgba(9,9,11,0.07)';
-      ctx.fillRect(0, 0, matrixCanvas.width, matrixCanvas.height);
-
-      ctx.font = '14px monospace';
-      for (let i = 0; i < drops.length; i++) {
-        const char = chars[Math.floor(Math.random() * chars.length)];
-        // Palette elegante modal: bianco/argento con accenti viola e oro
-        const rnd2 = Math.random();
-        if (rnd2 > 0.92)      ctx.fillStyle = 'rgba(212,175,55,0.9)';   // oro
-        else if (rnd2 > 0.80) ctx.fillStyle = 'rgba(168,85,247,0.85)';  // viola
-        else                  ctx.fillStyle = `rgba(220,220,228,${rnd2 > 0.5 ? 0.75 : 0.45})`; // bianco/argento
-        ctx.fillText(char, i * 18, drops[i] * 18);
-        if (drops[i] * 18 > matrixCanvas.height && Math.random() > 0.975) drops[i] = 0;
-        drops[i]++;
-      }
-      matrixFrame = requestAnimationFrame(draw);
-    }
-    draw();
-  }
-
-  function stopMatrix() {
-    matrixRunning = false;
-    cancelAnimationFrame(matrixFrame);
-    ctx.clearRect(0, 0, matrixCanvas.width, matrixCanvas.height);
-    matrixCanvas.style.display = 'none';
-  }
-
-  // Avvia/ferma matrix con apertura/chiusura modal
-  const _origOpen  = openStudio;
-  const _origClose = closeStudio;
-
-  // Override open
-  document.getElementById('open-studio').removeEventListener('click', null);
-  document.getElementById('hero-open-studio').removeEventListener('click', null);
-
-  function openWithMatrix() {
-    modal.classList.add('open');
-    document.body.style.overflow = 'hidden';
-    fetchBalance();
-    startMatrix();
-  }
-
-  function closeWithMatrix() {
-    modal.classList.remove('open');
-    document.body.style.overflow = '';
-    stopMatrix();
-  }
-
-  document.getElementById('open-studio').addEventListener('click', e => { e.preventDefault(); openWithMatrix(); });
-  document.getElementById('hero-open-studio').addEventListener('click', openWithMatrix);
-  document.getElementById('modal-close').addEventListener('click', closeWithMatrix);
-  modal.addEventListener('click', e => { if (e.target === modal) closeWithMatrix(); });
-
-  // ─── BACKGROUND MATRIX RAIN (sempre attivo sul sito) ─────────
-  (function() {
-    const c   = document.getElementById('bg-matrix');
-    const ctx2 = c.getContext('2d');
-
-    function resize() { c.width = window.innerWidth; c.height = window.innerHeight; }
-    resize();
-    window.addEventListener('resize', resize);
-
-    const chars = 'VAFAIアイウエオカキクケコ01ΔΣ∞≈><{}[]01110010';
-    const fontSize = 13;
-    let cols = Math.floor(c.width / fontSize);
-    let drops = Array(cols).fill(0);
-
-    setInterval(() => {
-      cols = Math.floor(c.width / fontSize);
-      if (drops.length < cols) drops = [...drops, ...Array(cols - drops.length).fill(0)];
-
-      ctx2.fillStyle = 'rgba(0,0,0,0.075)';
-      ctx2.fillRect(0, 0, c.width, c.height);
-      ctx2.font = fontSize + 'px monospace';
-
-      for (let i = 0; i < cols; i++) {
-        const ch  = chars[Math.floor(Math.random() * chars.length)];
-        const rnd = Math.random();
-        // Palette elegante: bianco/argento dominante, viola e oro come accenti
-        if (rnd > 0.96)      ctx2.fillStyle = '#d4af37';   // oro — raro
-        else if (rnd > 0.90) ctx2.fillStyle = '#a855f7';   // viola — occasionale
-        else if (rnd > 0.75) ctx2.fillStyle = '#c4c4c8';   // argento chiaro
-        else                 ctx2.fillStyle = '#e8e8ec';   // bianco ghiaccio — dominante
-
-        ctx2.fillText(ch, i * fontSize, drops[i] * fontSize);
-        if (drops[i] * fontSize > c.height && Math.random() > 0.978) drops[i] = 0;
-        drops[i]++;
-      }
-    }, 45);
-  })();
-
-  // ─── GALLERY PUBBLICA ─────────────────────────────────────────
-  const GAME_EMOJIS = ['🎮','🚀','🃏','💎','🏃','🚗','⚔️','🎯','🧩','🌟','👾','🎲','🏆','🔫','🐉'];
+  // ── GALLERY ──
+  const EMOJIS = ['🎮','🚀','🃏','💎','🏃','🚗','⚔️','🎯','🧩','🌟','👾','🎲','🏆','🔫','🐉','🦊','🌈','🎪'];
 
   async function loadGallery() {
     const container = document.getElementById('gallery-container');
@@ -2394,61 +772,90 @@
     try {
       const res  = await fetch(`${API}/games/public`);
       const data = await res.json();
+
       if (!data.games || data.games.length === 0) {
         container.innerHTML = `<div class="gallery-empty">
-          <span class="empty-icon">🎮</span>
+          <span class="ei">🎮</span>
           <p>Nessun gioco pubblicato ancora — sii il primo!</p>
-          <button class="btn-primary" onclick="openWithMatrix()" style="margin-top:1rem;">Crea e Pubblica →</button>
         </div>`;
         return;
       }
+
       const grid = document.createElement('div');
       grid.className = 'gallery-grid';
+
       data.games.forEach((game, idx) => {
-        const emoji = GAME_EMOJIS[idx % GAME_EMOJIS.length];
-        const name  = game.name || game.concept.substring(0, 50);
-        const desc  = game.description || game.concept.substring(0, 100);
-        const safeConc = game.concept.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-        const card  = document.createElement('div');
+        const emoji = EMOJIS[idx % EMOJIS.length];
+        const name  = (game.name || game.concept).substring(0, 48);
+        const desc  = (game.description || game.concept).substring(0, 90);
+        const safeC = game.concept.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+        const card = document.createElement('div');
         card.className = 'gallery-card';
         card.innerHTML = `
-          <div class="gallery-thumb" onclick="window.open('${API}/games/${game.id}/preview','_blank')" title="Gioca ora">
-            ${emoji}
-          </div>
+          <div class="gallery-thumb" onclick="window.open('${API}/games/${game.id}/preview','_blank')">${emoji}</div>
           <div class="gallery-body">
             <h3 title="${name}">${name}</h3>
             <p>${desc}</p>
             <div class="gallery-actions">
-              <a class="btn-play-gallery" href="${API}/games/${game.id}/preview" target="_blank">▶ Gioca</a>
-              <button class="btn-remix-gallery" data-concept="${safeConc}">🔀 Remix</button>
+              <a class="btn-play" href="${API}/games/${game.id}/preview" target="_blank">▶ Gioca</a>
+              <button class="btn-remix" data-concept="${safeC}">🔀 Remix</button>
             </div>
           </div>`;
         grid.appendChild(card);
       });
+
       container.innerHTML = '';
       container.appendChild(grid);
 
-      // Remix buttons
-      container.querySelectorAll('.btn-remix-gallery').forEach(btn => {
+      container.querySelectorAll('.btn-remix').forEach(btn => {
         btn.addEventListener('click', () => {
-          const concept = btn.dataset.concept;
-          conceptInput.value = 'REMIX — ' + concept;
-          checkComplexity(concept);
-          openWithMatrix();
-          setTimeout(() => conceptInput.focus(), 300);
+          conceptInput.value = 'REMIX — ' + btn.dataset.concept;
+          checkComplexity(btn.dataset.concept);
+          document.getElementById('hero').scrollIntoView({ behavior: 'smooth' });
+          setTimeout(() => conceptInput.focus(), 400);
+          showForm();
         });
       });
     } catch(e) {
-      container.innerHTML = '<div class="gallery-empty"><span class="empty-icon">⚠️</span><p>Errore nel caricamento della gallery.</p></div>';
+      container.innerHTML = '<div class="gallery-empty"><span class="ei">⚠️</span><p>Errore caricamento gallery.</p></div>';
     }
   }
 
   document.getElementById('gallery-refresh-btn').addEventListener('click', loadGallery);
 
-  // ─── INIT ─────────────────────────────────────────────────────
+  // ── MATRIX BG ──
+  (function() {
+    const c = document.getElementById('bg-matrix');
+    const ctx = c.getContext('2d');
+    function resize() { c.width = window.innerWidth; c.height = window.innerHeight; }
+    resize(); window.addEventListener('resize', resize);
+    const chars = 'VAFAIアイウエオカキ01ΔΣ∞≈><{}[]01110010';
+    const fs = 13; let cols = Math.floor(c.width/fs);
+    let drops = Array(cols).fill(0);
+    setInterval(() => {
+      cols = Math.floor(c.width/fs);
+      if (drops.length < cols) drops = [...drops, ...Array(cols-drops.length).fill(0)];
+      ctx.fillStyle = 'rgba(0,0,0,0.08)';
+      ctx.fillRect(0,0,c.width,c.height);
+      ctx.font = fs+'px monospace';
+      for (let i = 0; i < cols; i++) {
+        const ch = chars[Math.floor(Math.random()*chars.length)];
+        const r = Math.random();
+        if (r > 0.96)      ctx.fillStyle = '#d4af37';
+        else if (r > 0.90) ctx.fillStyle = '#a855f7';
+        else if (r > 0.75) ctx.fillStyle = '#c4c4c8';
+        else               ctx.fillStyle = '#e8e8ec';
+        ctx.fillText(ch, i*fs, drops[i]*fs);
+        if (drops[i]*fs > c.height && Math.random() > 0.978) drops[i] = 0;
+        drops[i]++;
+      }
+    }, 45);
+  })();
+
+  // ── INIT ──
   fetchBalance();
   loadGallery();
 </script>
-
 </body>
 </html>
