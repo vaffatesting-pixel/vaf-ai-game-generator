@@ -1184,6 +1184,90 @@
     }
     .error-box.visible { display: block; }
 
+    /* ─── GALLERY PUBBLICA ───────────────────────────────────── */
+    #gallery { text-align: center; }
+    #gallery h2 { margin-bottom: 0.75rem; }
+    #gallery > p { margin-bottom: 3rem; color: var(--muted); }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+      text-align: left;
+      margin-bottom: 2rem;
+    }
+
+    @media (max-width: 900px) { .gallery-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px) { .gallery-grid { grid-template-columns: 1fr; } }
+
+    .gallery-card {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .gallery-card:hover {
+      border-color: rgba(212,175,55,0.45);
+      transform: translateY(-4px);
+      box-shadow: 0 0 20px rgba(212,175,55,0.08), 0 0 40px rgba(124,58,237,0.08);
+    }
+
+    .gallery-thumb {
+      height: 110px;
+      background: var(--gradient);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.8rem;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .gallery-thumb::after {
+      content: '▶ Gioca';
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.9rem; font-weight: 700; color: #fff;
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .gallery-thumb:hover::after { opacity: 1; }
+
+    .gallery-body { padding: 1rem 1.25rem; }
+    .gallery-card h3 { font-size: 0.95rem; color: var(--white); margin-bottom: 0.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .gallery-card p  { font-size: 0.8rem; margin-bottom: 0.75rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+    .gallery-actions { display: flex; gap: 0.5rem; }
+    .gallery-actions a, .gallery-actions button {
+      flex: 1;
+      padding: 0.45rem 0.5rem;
+      border-radius: 8px;
+      font-weight: 600; font-size: 0.78rem;
+      cursor: pointer; text-align: center;
+      transition: all 0.2s;
+    }
+    .btn-play-gallery {
+      background: var(--gradient);
+      color: #fff; border: none; text-decoration: none;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .btn-remix-gallery {
+      background: rgba(212,175,55,0.1);
+      border: 1px solid rgba(212,175,55,0.3);
+      color: #d4af37;
+    }
+    .btn-remix-gallery:hover { background: rgba(212,175,55,0.2); }
+
+    .gallery-empty {
+      text-align: center; padding: 4rem 2rem;
+      color: var(--muted); font-size: 0.95rem;
+    }
+    .gallery-empty .empty-icon { font-size: 3rem; display: block; margin-bottom: 1rem; }
+
+    .gallery-loading {
+      text-align: center; padding: 3rem;
+      color: var(--muted); font-size: 0.9rem;
+    }
+
     /* ─── CREDIT BAR ─────────────────────────────────────────── */
     #credit-bar {
       position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 200;
@@ -1216,11 +1300,10 @@
   <div class="nav-logo">VAF AI Game Generator</div>
   <ul class="nav-links">
     <li><a href="#what">Platform</a></li>
-    <li><a href="#usecases">Use Cases</a></li>
     <li><a href="#how">How It Works</a></li>
-    <li><a href="#features">Features</a></li>
-    <li><a href="#enterprise">Enterprise</a></li>
-    <li><a href="#enterprise" class="nav-cta">Accesso Enterprise</a></li>
+    <li><a href="#gallery">🌍 Gallery</a></li>
+    <li><a href="#credits">Prezzi</a></li>
+    <li><a href="#enterprise" class="nav-cta">Enterprise</a></li>
     <li><a href="#" class="nav-cta" id="open-studio" style="background:var(--gradient);margin-left:0.5rem;">▶ Apri Studio</a></li>
   </ul>
 </nav>
@@ -1703,6 +1786,23 @@
   </div>
 </div>
 
+<!-- ─── GALLERY PUBBLICA ──────────────────────────────────── -->
+<div class="divider"></div>
+
+<section id="gallery">
+  <div class="section-label">Community Gallery</div>
+  <h2>Giochi Creati dalla Community 🌍</h2>
+  <p>Esplora i giochi pubblicati dagli altri utenti — giocali subito o usa "Remix" per farne la tua versione.</p>
+
+  <div id="gallery-container">
+    <div class="gallery-loading">⏳ Caricamento giochi...</div>
+  </div>
+
+  <button class="btn-secondary" id="gallery-refresh-btn" style="margin-top:1.5rem;">🔄 Aggiorna</button>
+</section>
+
+<div class="divider"></div>
+
 <!-- ─── FOOTER ─────────────────────────────────────────────── -->
 <footer>
   <div class="footer-inner">
@@ -1911,7 +2011,12 @@
   const API = (location.protocol === 'file:' || location.hostname === '')
     ? 'http://localhost:3000/api'
     : `${location.protocol}//${location.host}/api`;
-  const USER_ID = 'demo-user'; // Replace with real auth later
+  // Unique persistent user ID per browser (no login needed)
+  let USER_ID = localStorage.getItem('vaf_user_id');
+  if (!USER_ID) {
+    USER_ID = 'u_' + Math.random().toString(36).substr(2,9) + '_' + Date.now().toString(36);
+    localStorage.setItem('vaf_user_id', USER_ID);
+  }
 
   // ─── STATE ────────────────────────────────────────────────────
   let currentGameId = null;
@@ -2104,12 +2209,19 @@
     pubBtn.disabled = true;
     pubBtn.textContent = 'Pubblicazione...';
     try {
-      // For now: generate a shareable preview link (the /preview route serves the full game)
-      // In future this will POST to a real marketplace endpoint
-      const link = `${API}/games/${currentGameId}/preview`;
+      const res = await fetch(`${API}/games/${currentGameId}/publish`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
+        body: JSON.stringify({ name, description: desc })
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Errore pubblicazione.'); return; }
+      const link = `${location.protocol}//${location.host}${data.previewUrl}`;
       document.getElementById('pub-link-display').textContent = link;
       publishSucc.classList.add('visible');
       pubBtn.style.display = 'none';
+      // Refresh gallery if visible
+      loadGallery();
     } catch(e) {
       alert('Errore durante la pubblicazione. Riprova.');
     } finally {
@@ -2273,8 +2385,69 @@
     }, 45);
   })();
 
+  // ─── GALLERY PUBBLICA ─────────────────────────────────────────
+  const GAME_EMOJIS = ['🎮','🚀','🃏','💎','🏃','🚗','⚔️','🎯','🧩','🌟','👾','🎲','🏆','🔫','🐉'];
+
+  async function loadGallery() {
+    const container = document.getElementById('gallery-container');
+    container.innerHTML = '<div class="gallery-loading">⏳ Caricamento giochi...</div>';
+    try {
+      const res  = await fetch(`${API}/games/public`);
+      const data = await res.json();
+      if (!data.games || data.games.length === 0) {
+        container.innerHTML = `<div class="gallery-empty">
+          <span class="empty-icon">🎮</span>
+          <p>Nessun gioco pubblicato ancora — sii il primo!</p>
+          <button class="btn-primary" onclick="openWithMatrix()" style="margin-top:1rem;">Crea e Pubblica →</button>
+        </div>`;
+        return;
+      }
+      const grid = document.createElement('div');
+      grid.className = 'gallery-grid';
+      data.games.forEach((game, idx) => {
+        const emoji = GAME_EMOJIS[idx % GAME_EMOJIS.length];
+        const name  = game.name || game.concept.substring(0, 50);
+        const desc  = game.description || game.concept.substring(0, 100);
+        const safeConc = game.concept.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        const card  = document.createElement('div');
+        card.className = 'gallery-card';
+        card.innerHTML = `
+          <div class="gallery-thumb" onclick="window.open('${API}/games/${game.id}/preview','_blank')" title="Gioca ora">
+            ${emoji}
+          </div>
+          <div class="gallery-body">
+            <h3 title="${name}">${name}</h3>
+            <p>${desc}</p>
+            <div class="gallery-actions">
+              <a class="btn-play-gallery" href="${API}/games/${game.id}/preview" target="_blank">▶ Gioca</a>
+              <button class="btn-remix-gallery" data-concept="${safeConc}">🔀 Remix</button>
+            </div>
+          </div>`;
+        grid.appendChild(card);
+      });
+      container.innerHTML = '';
+      container.appendChild(grid);
+
+      // Remix buttons
+      container.querySelectorAll('.btn-remix-gallery').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const concept = btn.dataset.concept;
+          conceptInput.value = 'REMIX — ' + concept;
+          checkComplexity(concept);
+          openWithMatrix();
+          setTimeout(() => conceptInput.focus(), 300);
+        });
+      });
+    } catch(e) {
+      container.innerHTML = '<div class="gallery-empty"><span class="empty-icon">⚠️</span><p>Errore nel caricamento della gallery.</p></div>';
+    }
+  }
+
+  document.getElementById('gallery-refresh-btn').addEventListener('click', loadGallery);
+
   // ─── INIT ─────────────────────────────────────────────────────
   fetchBalance();
+  loadGallery();
 </script>
 
 </body>
