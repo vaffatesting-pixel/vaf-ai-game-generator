@@ -21,8 +21,8 @@ function saveDB(db) {
 const PLANS = {
   free: {
     name: 'Free',
-    startingCredits: 20,
-    description: 'Try VAF with 20 free credits'
+    startingCredits: 100,
+    description: 'Try VAF with 100 free credits'
   },
   starter: {
     name: 'Starter',
