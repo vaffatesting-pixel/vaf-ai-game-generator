@@ -2,28 +2,32 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const router  = express.Router();
 
-const { generateGame, refineGame, getCreditCost, getAllGameTypes } = require('../engine/generateGame');
+const { generateGame, refineGame, getCreditCost, getAllGameTypes, getAllTiers } = require('../engine/generateGame');
 const { requireCredits, deductCredits, getUser } = require('../engine/credits');
 const store = require('../engine/gameStore');
 
 // ─── GET: Available Game Types ────────────────────────────────
-// GET /api/generate/types
 router.get('/types', (req, res) => {
   res.json({ gameTypes: getAllGameTypes() });
 });
 
+// ─── GET: Available Tiers ─────────────────────────────────────
+router.get('/tiers', (req, res) => {
+  res.json({ tiers: getAllTiers() });
+});
+
 // ─── POST: Generate a New Game ────────────────────────────────
 // POST /api/generate
-// Body: { concept, gameType, audience, theme, mechanics, extras }
+// Body: { concept, gameType, tier, audience, theme, mechanics, extras }
 router.post('/', async (req, res) => {
-  const { concept, gameType = 'arcade', audience, theme, mechanics, extras } = req.body;
+  const { concept, gameType = 'arcade', tier = 'quick', audience, theme, mechanics, extras } = req.body;
 
   if (!concept || concept.trim().length < 10) {
     return res.status(400).json({ error: 'Please provide a game concept (at least 10 characters).' });
   }
 
   const userId    = req.headers['x-user-id'] || 'demo-user';
-  const creditCost = getCreditCost(gameType);
+  const creditCost = getCreditCost(gameType, tier);
 
   // Check credits before generating
   try {
@@ -42,10 +46,10 @@ router.post('/', async (req, res) => {
 
   try {
     // Generate the game
-    const result = await generateGame({ concept, gameType, audience, theme, mechanics, extras });
+    const result = await generateGame({ concept, gameType, tier, audience, theme, mechanics, extras });
 
     // Deduct credits after successful generation
-    const creditResult = deductCredits(userId, result.creditCost, `Generated ${gameType}: ${concept.substring(0, 40)}`);
+    const creditResult = deductCredits(userId, result.creditCost, `[${tier.toUpperCase()}] ${gameType}: ${concept.substring(0, 40)}`);
 
     // Store game in local store
     const gameId = uuidv4();
@@ -54,6 +58,8 @@ router.post('/', async (req, res) => {
       userId,
       concept,
       gameType,
+      tier,
+      tierLabel: result.tierLabel,
       html: result.html,
       creditCost: result.creditCost,
       tokensUsed: result.tokensUsed,
@@ -65,6 +71,8 @@ router.post('/', async (req, res) => {
       success: true,
       gameId,
       gameType,
+      tier,
+      tierLabel: result.tierLabel,
       html: result.html,
       creditCost: result.creditCost,
       newCreditBalance: creditResult.newBalance,

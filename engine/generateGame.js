@@ -7,6 +7,13 @@ const ANTHROPIC_HOST = 'api.anthropic.com';
 const ANTHROPIC_PATH = '/v1/messages';
 const MODEL = 'claude-opus-4-5';
 
+// GENERATION TIERS
+const TIERS = {
+  quick:    { label: 'Quick Game',    creditCost: 5,  maxTokens: 6000,  emoji: '⚡', description: 'Fast generation, simple graphics',                     badge: 'QUICK'     },
+  enhanced: { label: 'Enhanced Game', creditCost: 20, maxTokens: 14000, emoji: '🎮', description: 'Polished graphics, animations, sound effects, full UX', badge: 'ENHANCED'  },
+  full:     { label: 'Full Game',     creditCost: 60, maxTokens: 40000, emoji: '🚀', description: 'Shop, levels, leaderboard, sharing, ads',               badge: 'FULL GAME' }
+};
+
 // ─── GAME TYPE CONFIGS ────────────────────────────────────────
 const GAME_TYPE_CONFIGS = {
   arcade:         { creditCost: 10, maxTokens:  9000, description: 'Fast-paced action game with score and lives system', mechanics: 'player movement, collision detection, enemy AI, scoring, lives' },
@@ -74,39 +81,79 @@ function callClaude({ system, userMessage, maxTokens = 8192 }) {
   });
 }
 
-// ─── PROMPTS ──────────────────────────────────────────────────
-function buildSystemPrompt(gameType) {
+// ─── PROMPTS PER TIER ─────────────────────────────────────────
+function buildSystemPrompt(gameType, tier) {
   const config = GAME_TYPE_CONFIGS[gameType] || GAME_TYPE_CONFIGS.arcade;
-  return `You are VAF AI Game Generator — a world-class AI game development engine.
-Your sole task is to generate complete, fully playable HTML5 games as a single self-contained HTML file.
 
-GAME TYPE: ${gameType.toUpperCase()}
-TYPE DESCRIPTION: ${config.description}
-REQUIRED MECHANICS: ${config.mechanics}
+  if (tier === 'enhanced') {
+    return `You are VAF AI Game Generator ENHANCED — premium HTML5 game engine.
+Generate a polished, visually impressive HTML5 ${gameType} game as a single self-contained HTML file.
 
-STRICT REQUIREMENTS:
-1. Output ONLY raw HTML — no markdown, no code blocks, no explanations.
-2. The entire game must be in one single HTML file.
-3. Use only vanilla JavaScript and inline CSS — no external dependencies.
-4. The game must be immediately playable in a browser.
-5. Include title, instructions, score display, and start/restart logic.
-6. Game area must be responsive and centered.
-7. Use a dark, professional visual style (dark background, vivid accent colors).
-8. Include a small "Made with VAF AI Game Generator" footer credit.
-9. The game must have a defined win condition or end state.
-10. Code must be clean, commented, and production-quality.
+GAME TYPE: ${gameType.toUpperCase()} — ${config.description}
+MECHANICS: ${config.mechanics}
 
-DO NOT output anything except the complete HTML file starting with <!DOCTYPE html>.`;
+REQUIREMENTS:
+1. Output ONLY raw HTML — no markdown, no code blocks.
+2. Single file, vanilla JS + inline CSS. Zero external dependencies.
+3. VISUAL EXCELLENCE:
+   - Canvas 60fps with requestAnimationFrame
+   - Rich gradients, glow effects, atmospheric depth
+   - Particle systems: explosions, sparkles, trails
+   - Screen shake and flash effects on all interactions
+4. AUDIO: Web Audio API procedural sound effects (jump, hit, collect, game-over)
+5. Animated title screen with glowing logo effect
+6. Game over screen with score and high score stored in localStorage
+7. Subtle "⚡ VAF AI Game Generator" badge bottom-right.
+
+Start with <!DOCTYPE html>.`;
+  }
+
+  if (tier === 'full') {
+    return `You are VAF AI Game Generator FULL — professional HTML5 game studio.
+Generate a complete, shippable HTML5 ${gameType} game as a single self-contained HTML file.
+
+GAME TYPE: ${gameType.toUpperCase()} — ${config.description}
+MECHANICS: ${config.mechanics}
+
+ALL MANDATORY FEATURES:
+1. CORE GAMEPLAY: 3+ levels with transitions, score multipliers, combo system, HP bar, 2+ power-ups
+2. VISUAL EXCELLENCE: Canvas 60fps, parallax layers, particles, level transitions, Google Fonts via @import
+3. AUDIO: Web Audio music loop, SFX for all events, mute/unmute button
+4. IN-GAME SHOP: coins earned in play, shop modal from pause+between levels, 4 upgrades, localStorage inventory
+5. SOCIAL SHARING: Twitter share button (window.open intent), copy-to-clipboard score
+6. AD SLOTS: <div id="ad-banner-top" style="display:none"></div> and <div id="ad-interstitial" style="display:none"></div>, plus window.VAF_SHOW_AD = function(){} hook
+7. LEADERBOARD: top-10 localStorage leaderboard, name entry on new high score
+8. PAUSE + SETTINGS: ESC/P pause overlay with menu, volume slider, difficulty selector
+9. POLISH: animated main menu with particles, level-complete fireworks, achievement toasts, mobile+desktop, VAF badge bottom-right
+
+OUTPUT: ONLY complete raw HTML starting with <!DOCTYPE html>. All inline. Single file.`;
+  }
+
+  // default: quick
+  return `You are VAF AI Game Generator. Generate a complete playable HTML5 ${gameType} game as a single self-contained HTML file.
+
+GAME TYPE: ${gameType.toUpperCase()} — ${config.description}
+MECHANICS: ${config.mechanics}
+
+REQUIREMENTS:
+1. Output ONLY raw HTML — no markdown, no code blocks.
+2. Single file, vanilla JS + inline CSS. No external dependencies.
+3. Start screen, score display, win/lose condition, restart logic.
+4. Dark background with colorful accents. Clean readable layout.
+5. Small "Made with VAF AI" footer credit.
+
+Start with <!DOCTYPE html>.`;
 }
 
-function buildUserPrompt({ concept, gameType, audience, theme, mechanics, extras }) {
-  return `Generate a complete playable HTML5 ${gameType} game based on this concept:
+function buildUserPrompt({ concept, gameType, audience, theme, mechanics, extras, tier }) {
+  const tierLabels = { quick: 'QUICK (functional, simple)', enhanced: 'ENHANCED (polished visuals, audio)', full: 'FULL GAME (shop, levels, leaderboard, sharing)' };
+  return `Generate a ${tierLabels[tier] || tierLabels.quick} HTML5 ${gameType} game:
 
-GAME CONCEPT: ${concept}
-TARGET AUDIENCE: ${audience || 'General audience'}
+CONCEPT: ${concept}
+AUDIENCE: ${audience || 'General'}
 VISUAL THEME: ${theme || 'Dark professional, modern'}
-SPECIFIC MECHANICS: ${mechanics || 'Standard for this game type'}
-EXTRA REQUIREMENTS: ${extras || 'None'}
+CUSTOM MECHANICS: ${mechanics || 'Standard for this game type'}
+EXTRAS: ${extras || 'None'}
 
 Output ONLY the complete HTML file. Nothing else.`;
 }
@@ -119,26 +166,26 @@ function cleanHtmlOutput(raw) {
 
 // ─── GENERATE ─────────────────────────────────────────────────
 async function generateGame(params) {
-  const { concept, gameType = 'arcade', audience, theme, mechanics, extras } = params;
+  const { concept, gameType = 'arcade', audience, theme, mechanics, extras, tier = 'quick' } = params;
   if (!concept || concept.trim().length < 10) throw new Error('Concept too short (min 10 chars).');
 
-  const config = GAME_TYPE_CONFIGS[gameType] || GAME_TYPE_CONFIGS.arcade;
-  console.log(`[VAF ENGINE] Generating ${gameType}: "${concept.substring(0, 50)}..."`);
+  const tierConfig = TIERS[tier] || TIERS.quick;
+  console.log(`[VAF ENGINE] Generating [${tier.toUpperCase()}] ${gameType}: "${concept.substring(0, 50)}..."`);
   const t = Date.now();
 
   const result = await callClaude({
-    system: buildSystemPrompt(gameType),
-    userMessage: buildUserPrompt({ concept, gameType, audience, theme, mechanics, extras }),
-    maxTokens: config.maxTokens
+    system: buildSystemPrompt(gameType, tier),
+    userMessage: buildUserPrompt({ concept, gameType, audience, theme, mechanics, extras, tier }),
+    maxTokens: tierConfig.maxTokens
   });
 
   const elapsed = ((Date.now() - t) / 1000).toFixed(2);
-  console.log(`[VAF ENGINE] Done in ${elapsed}s — ${result.outputTokens} tokens`);
+  console.log(`[VAF ENGINE] Done in ${elapsed}s — ${result.outputTokens} tokens — Tier: ${tier}`);
 
   const html = cleanHtmlOutput(result.text);
   if (!html.includes('<!DOCTYPE html>')) throw new Error('AI output is not valid HTML. Try again.');
 
-  return { html, gameType, creditCost: config.creditCost, tokensUsed: result.outputTokens, generationTimeSeconds: parseFloat(elapsed), model: MODEL };
+  return { html, gameType, tier, tierLabel: tierConfig.label, creditCost: tierConfig.creditCost, tokensUsed: result.outputTokens, generationTimeSeconds: parseFloat(elapsed), model: MODEL };
 }
 
 // ─── REFINE ───────────────────────────────────────────────────
@@ -158,9 +205,12 @@ Return ONLY the complete updated HTML file. No explanations. No markdown. Raw HT
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────
-function getCreditCost(gameType) { return GAME_TYPE_CONFIGS[gameType]?.creditCost || 10; }
+function getCreditCost(gameType, tier = 'quick') { return (TIERS[tier] || TIERS.quick).creditCost; }
 function getAllGameTypes() {
-  return Object.entries(GAME_TYPE_CONFIGS).map(([type, cfg]) => ({ type, creditCost: cfg.creditCost, description: cfg.description }));
+  return Object.entries(GAME_TYPE_CONFIGS).map(([type, cfg]) => ({ type, description: cfg.description }));
+}
+function getAllTiers() {
+  return Object.entries(TIERS).map(([id, cfg]) => ({ id, label: cfg.label, creditCost: cfg.creditCost, emoji: cfg.emoji, description: cfg.description, badge: cfg.badge }));
 }
 
-module.exports = { generateGame, refineGame, getCreditCost, getAllGameTypes };
+module.exports = { generateGame, refineGame, getCreditCost, getAllGameTypes, getAllTiers, TIERS };

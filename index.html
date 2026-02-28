@@ -200,6 +200,42 @@
     }
     .generate-btn:hover { opacity: 0.88; }
     .generate-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    /* ─── TIER SELECTOR ─────────────────────────── */
+    .tier-selector {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+    }
+    .tier-card {
+      border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 0.65rem 0.5rem;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+      background: rgba(255,255,255,0.03);
+      position: relative;
+    }
+    .tier-card:hover { border-color: rgba(212,175,55,0.5); background: rgba(212,175,55,0.06); }
+    .tier-card.selected {
+      border-color: var(--gold2);
+      background: rgba(212,175,55,0.12);
+      box-shadow: 0 0 12px rgba(212,175,55,0.2);
+    }
+    .tier-card .tier-emoji { font-size: 1.4rem; display: block; margin-bottom: 0.25rem; }
+    .tier-card .tier-name  { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--white); }
+    .tier-card .tier-cost  { font-size: 0.82rem; color: var(--gold2); font-weight: 700; margin: 0.15rem 0; }
+    .tier-card .tier-desc  { font-size: 0.65rem; color: var(--muted); line-height: 1.35; }
+    .tier-card .tier-badge {
+      position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+      background: var(--grad); color: #fff;
+      font-size: 0.55rem; font-weight: 800; letter-spacing: 0.1em;
+      padding: 2px 7px; border-radius: 20px; white-space: nowrap;
+      display: none;
+    }
+    .tier-card.selected .tier-badge { display: block; }
+
 
     /* Complexity warn */
     .complexity-warn {
@@ -489,8 +525,33 @@
 
         <textarea class="concept-textarea" id="concept" placeholder="Descrivi la tua idea... es. Un gioco di corse in città dove eviti il traffico e raccogli carburante"></textarea>
 
+        <!-- TIER SELECTOR -->
+        <div class="tier-selector" id="tier-selector">
+          <div class="tier-card selected" data-tier="quick">
+            <span class="tier-badge">QUICK</span>
+            <span class="tier-emoji">⚡</span>
+            <div class="tier-name">Quick</div>
+            <div class="tier-cost">5 cr</div>
+            <div class="tier-desc">Funzionale, grafica semplice</div>
+          </div>
+          <div class="tier-card" data-tier="enhanced">
+            <span class="tier-badge">ENHANCED</span>
+            <span class="tier-emoji">🎮</span>
+            <div class="tier-name">Enhanced</div>
+            <div class="tier-cost">20 cr</div>
+            <div class="tier-desc">Grafica curata, animazioni, audio</div>
+          </div>
+          <div class="tier-card" data-tier="full">
+            <span class="tier-badge">FULL GAME</span>
+            <span class="tier-emoji">🚀</span>
+            <div class="tier-name">Full Game</div>
+            <div class="tier-cost">60 cr</div>
+            <div class="tier-desc">Shop, livelli, leaderboard, share</div>
+          </div>
+        </div>
+
         <div class="studio-footer">
-          <div class="credit-badge">💎 <strong id="balance-display">20</strong> crediti &nbsp;·&nbsp; 10 cr per gioco</div>
+          <div class="credit-badge">💎 <strong id="balance-display">20</strong> crediti &nbsp;·&nbsp; <span id="tier-cost-display">5</span> cr per gioco</div>
           <button class="generate-btn" id="generate-btn">⚡ Genera Gioco</button>
         </div>
       </div>
@@ -655,6 +716,19 @@
   function showError(msg) { errorBox.textContent = msg; errorBox.classList.add('visible'); }
   function clearError()   { errorBox.classList.remove('visible'); }
 
+  // ── TIER SELECTOR ──
+  const tierCards = document.querySelectorAll('.tier-card');
+  const tierCostDisp = document.getElementById('tier-cost-display');
+  const tierCosts = { quick: 5, enhanced: 20, full: 60 };
+  tierCards.forEach(card => {
+    card.addEventListener('click', () => {
+      tierCards.forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      const tier = card.dataset.tier;
+      tierCostDisp.textContent = tierCosts[tier] || 5;
+    });
+  });
+
   // ── GENERATE ──
   generateBtn.addEventListener('click', async () => {
     clearError();
@@ -662,10 +736,11 @@
     if (concept.length < 10) { showError('Descrivi il gioco con almeno 10 caratteri.'); return; }
     showLoading();
     try {
+      const tier = document.querySelector('.tier-card.selected')?.dataset.tier || 'quick';
       const res  = await fetch(`${API}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-user-id': USER_ID },
-        body: JSON.stringify({ concept })
+        body: JSON.stringify({ concept, tier })
       });
       const data = await res.json();
       if (!res.ok) { showForm(); showError(data.error || 'Generazione fallita. Riprova.'); return; }
@@ -674,11 +749,12 @@
       credits = data.newCreditBalance;
       creditDisp.textContent = balanceDisp.textContent = credits;
 
+      const tierEmojis = { quick: '⚡', enhanced: '🎮', full: '🚀' };
       resultMeta.innerHTML = `
+        <div class="meta-badge">${tierEmojis[data.tier] || '⚡'} <span>${data.tierLabel || data.tier}</span></div>
         <div class="meta-badge">Crediti: <span>${data.creditCost}</span></div>
         <div class="meta-badge">Saldo: <span>${data.newCreditBalance}</span></div>
         <div class="meta-badge">Tempo: <span>${data.generationTimeSeconds}s</span></div>
-        ${data.downscaled ? '<div class="meta-badge" style="color:#d4af37;border-color:rgba(212,175,55,0.3);">⚡ Downscaled</div>' : ''}
       `;
 
       document.getElementById('play-btn').onclick = () => window.open(`${API}/games/${currentGameId}/preview`, '_blank');
