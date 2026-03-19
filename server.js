@@ -150,6 +150,11 @@ app.use('/api/generate', generateRoute);
 app.use('/api/credits',  creditsRoute);
 app.use('/api/games',    gamesRoute);
 
+// ─── HOSPITALITY MODULE ─────────────────────────────────────────
+const { router: hospitalityRouter, initializeGateway } = require('./hospitality');
+app.use('/api/hospitality', hospitalityRouter);
+initializeGateway(app);
+
 // ─── HEALTH CHECK ────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({
